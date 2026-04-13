@@ -96,11 +96,10 @@ async getUserInfo() {
 
     try {
       const response = await fetch(CONFIG.GOOGLE_USERINFO_URL, {
-        headers: { Authorization: `Bearer ${token}` }
+        headers: { Authorization: 'Bearer ' + token }
       });
 
       if (!response.ok) {
-        // Si falla userinfo, crear usuario básico con el token
         const info = { name: 'Usuario', email: '', picture: '' };
         Storage.setUserInfo(info);
         return info;
