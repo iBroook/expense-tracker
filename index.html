@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="es" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="FinTrack — Control de gastos en múltiples divisas con IA">
+  <title>FinTrack — Control de Gastos</title>
+  <link rel="stylesheet" href="styles.css">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>💳</text></svg>">
+</head>
+<body>
+
+  <!-- ==================== LOGIN SCREEN ==================== -->
+  <div id="login-screen" style="display:flex">
+    <div class="login-card">
+      <div class="login-logo">FinTrack</div>
+      <div class="login-tagline">Control de gastos en múltiples divisas con IA</div>
+
+      <ul class="login-features">
+        <li>
+          <span class="icon">📷</span>
+          Sube facturas — la IA extrae los datos automáticamente
+        </li>
+        <li>
+          <span class="icon">💱</span>
+          COP, USD, USDT, VES y divisas temporales
+        </li>
+        <li>
+          <span class="icon">📊</span>
+          Dashboard con resúmenes, gráficas y reportes
+        </li>
+        <li>
+          <span class="icon">☁️</span>
+          Sincronización con Google Sheets en tiempo real
+        </li>
+      </ul>
+
+      <button class="btn-google" onclick="startGoogleAuth()">
+        <svg width="20" height="20" viewBox="0 0 48 48">
+          <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/>
+          <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/>
+          <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/>
+          <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.18 1.48-4.97 2.31-8.16 2.31-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/>
+        </svg>
+        Conectar con Google
+      </button>
+
+      <p style="margin-top:1.5rem;font-size:0.75rem;color:var(--text-muted)">
+        Solo se solicita acceso a Google Sheets. Tus datos no son compartidos con terceros.
+      </p>
+    </div>
+  </div>
+
+  <!-- ==================== MAIN APP ==================== -->
+  <div id="app">
+    <!-- Mobile overlay -->
+    <div class="mobile-overlay" onclick="closeSidebar()"></div>
+
+    <!-- Sidebar -->
+    <aside class="sidebar">
+      <div class="sidebar-logo">
+        <span>FinTrack</span>
+        <small>Control de Gastos</small>
+      </div>
+
+      <nav class="sidebar-nav">
+        <div class="nav-item active" data-tab="dashboard" onclick="switchTab('dashboard')">
+          <span class="nav-icon">📊</span> Dashboard
+        </div>
+        <div class="nav-item" data-tab="register" onclick="switchTab('register')">
+          <span class="nav-icon">➕</span> Registrar
+        </div>
+        <div class="nav-item" data-tab="history" onclick="switchTab('history')">
+          <span class="nav-icon">📋</span> Historial
+        </div>
+        <div class="nav-item" data-tab="currencies" onclick="switchTab('currencies')">
+          <span class="nav-icon">💱</span> Divisas
+        </div>
+        <div class="nav-item" data-tab="reports" onclick="switchTab('reports')">
+          <span class="nav-icon">📈</span> Reportes
+        </div>
+        <div class="nav-item" data-tab="settings" onclick="switchTab('settings')">
+          <span class="nav-icon">⚙️</span> Configuración
+        </div>
+      </nav>
+
+      <div class="sidebar-footer">
+        <div id="user-info-container"></div>
+        <div class="nav-item" onclick="logout()" style="color:var(--red)">
+          <span class="nav-icon">👋</span> Cerrar sesión
+        </div>
+      </div>
+    </aside>
+
+    <!-- Main content -->
+    <main class="main-content">
+      <div id="tab-content">
+        <!-- Contenido renderizado dinámicamente -->
+      </div>
+    </main>
+  </div>
+
+  <!-- Scripts -->
+  <script src="config.js"></script>
+  <script src="utils/storage.js"></script>
+  <script src="utils/currency.js"></script>
+  <script src="utils/claude-api.js"></script>
+  <script src="utils/google-sheets.js"></script>
+  <script src="script.js"></script>
+
+  <script>
+    // Iniciar OAuth al hacer clic
+    function startGoogleAuth() {
+      try {
+        GoogleSheets.startOAuth();
+      } catch (err) {
+        alert('Error: ' + err.message + '\n\nVerifica que hayas configurado los GitHub Secrets correctamente.');
+      }
+    }
+  </script>
+</body>
+</html>
