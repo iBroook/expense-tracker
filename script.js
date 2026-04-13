@@ -447,9 +447,9 @@ function renderRegister() {
         '<div id="analysis-result" style="display:none;margin-top:1rem"></div>' +
         '<button id="analyze-btn" class="btn btn-primary" style="width:100%;margin-top:1rem;display:none" onclick="analyzePhoto()">🔍 Analizar con IA</button>' +
       '</div>' +
-      '<div class="card" id="photo-form-panel">' +
+      '<div class="card" id="photo-form-panel" style="overflow-y:auto;max-height:80vh">' +
         '<div class="card-header"><span class="card-title">✏️ Confirmar datos</span></div>' +
-        '<div class="empty-state"><div class="empty-icon">👈</div><p>Sube y analiza una foto para ver los datos aqui</p></div>' +
+        '<div id="photo-form-content"><div class="empty-state"><div class="empty-icon">👈</div><p>Sube y analiza una foto para ver los datos aqui</p></div></div>' +
       '</div>' +
     '</div>' +
 
@@ -615,53 +615,21 @@ function handlePhotoUpload(event) {
 
 async function analyzePhoto() {
   if (!photoFile) return;
-
   if (!ClaudeAPI.isConfigured()) {
-    showToast('Claude API key no configurada. Ingresa los datos manualmente.', 'error');
+    showToast('Claude API key no configurada.', 'error');
     return;
   }
-
-  const btn = document.getElementById('analyze-btn');
+  var btn = document.getElementById('analyze-btn');
   btn.disabled = true;
   btn.textContent = '⏳ Analizando...';
-
   try {
-    const base64 = await ClaudeAPI.fileToBase64(photoFile);
-    const mimeType = ClaudeAPI.getMimeType(photoFile);
-    const result = await ClaudeAPI.analyzeImage(base64, mimeType);
-
+    var base64 = await ClaudeAPI.fileToBase64(photoFile);
+    var mimeType = ClaudeAPI.getMimeType(photoFile);
+    var result = await ClaudeAPI.analyzeImage(base64, mimeType);
     photoData = result;
     displayAnalysisResult(result);
-
-    // Auto-rellenar formulario
-    if (result.amount) document.getElementById('tx-amount').value = result.amount;
-    if (result.date) document.getElementById('tx-date').value = result.date;
-    if (result.concept) document.getElementById('tx-description').value = result.concept;
-
-    // Divisa
-    const currencyEl = document.getElementById('tx-currency');
-    if (result.currency && currencyEl) {
-      const option = [...currencyEl.options].find(o => o.value === result.currency);
-      if (option) currencyEl.value = result.currency;
-    }
-
-    // Tipo
-    if (result.type) {
-      const radio = document.querySelector(`input[name="tx-type"][value="${result.type}"]`);
-      if (radio) { radio.checked = true; onTypeChange(); }
-    }
-
-    // Categoría
-    if (result.category) {
-      const catEl = document.getElementById('tx-category');
-      if (catEl) {
-        const option = [...catEl.options].find(o => o.value === result.category);
-        if (option) catEl.value = result.category;
-      }
-    }
-
     showToast('Imagen analizada con éxito', 'success');
-  } catch (err) {
+  } catch(err) {
     showToast('Error analizando imagen: ' + err.message, 'error');
   } finally {
     btn.disabled = false;
@@ -674,7 +642,6 @@ function displayAnalysisResult(result) {
   if (!container) return;
   var confidence = Math.round((result.confidence || 0) * 100);
   var hasUncertain = result.uncertain_fields && result.uncertain_fields.length > 0;
-
   container.style.display = 'block';
   container.innerHTML = '<div class="analysis-card">' +
     '<div class="analysis-header">✨ Análisis IA — Confianza: ' + confidence + '%</div>' +
@@ -682,8 +649,6 @@ function displayAnalysisResult(result) {
     (hasUncertain ? '<div style="margin-top:0.75rem;padding:0.6rem;background:var(--yellow-dim);border-radius:6px;font-size:0.8rem;color:var(--yellow)">⚠️ Verifica: ' + result.uncertain_fields.join(', ') + '</div>' : '') +
     (result.notes ? '<div style="margin-top:0.75rem;font-size:0.8rem;color:var(--text-muted)">' + escapeHtml(result.notes) + '</div>' : '') +
     '</div>';
-
-  // Mostrar formulario según tipo
   if (result.transaction_kind === 'unknown') {
     showUnknownForm(result);
   } else if (result.transaction_kind === 'conversion') {
@@ -691,6 +656,115 @@ function displayAnalysisResult(result) {
   } else {
     showSimpleConfirm(result);
   }
+}
+
+function showConversionConfirm(result) {
+  var el = document.getElementById('photo-form-content');
+  if (!el) return;
+  var currencies = Currency.getAll();
+  el.innerHTML = '<div style="background:var(--blue-dim);border:1px solid rgba(96,165,250,0.3);border-radius:8px;padding:0.75rem;margin-bottom:1rem;font-size:0.82rem;color:var(--blue)">🔄 Conversión detectada via ' + escapeHtml(result.platform || 'plataforma') + '</div>' +
+    '<div class="form-row">' +
+    '<div class="form-group"><label class="form-label">Monto que SALE</label><input type="number" class="form-control" id="cf-from-amount" value="' + (result.from_amount || '') + '" step="any"></div>' +
+    '<div class="form-group"><label class="form-label">Divisa que SALE</label><select class="form-control" id="cf-from-currency">' + currencies.map(function(c){ return '<option value="'+c.code+'" '+(c.code===result.from_currency?'selected':'')+'>'+c.code+'</option>'; }).join('') + '</select></div>' +
+    '</div>' +
+    '<div style="text-align:center;font-size:1.5rem;color:var(--accent)">↓</div>' +
+    '<div class="form-row">' +
+    '<div class="form-group"><label class="form-label">Monto que ENTRA</label><input type="number" class="form-control" id="cf-to-amount" value="' + (result.to_amount || '') + '" step="any"></div>' +
+    '<div class="form-group"><label class="form-label">Divisa que ENTRA</label><select class="form-control" id="cf-to-currency">' + currencies.map(function(c){ return '<option value="'+c.code+'" '+(c.code===result.to_currency?'selected':'')+'>'+c.code+'</option>'; }).join('') + '</select></div>' +
+    '</div>' +
+    '<div class="form-row">' +
+    '<div class="form-group"><label class="form-label">Fecha</label><input type="date" class="form-control" id="cf-date" value="' + (result.date || new Date().toISOString().split('T')[0]) + '"></div>' +
+    '<div class="form-group"><label class="form-label">Clasificacion</label><select class="form-control" id="cf-classification"><option value="Empresa">Empresa</option><option value="Personal">Personal</option><option value="Mixto">Mixto</option></select></div>' +
+    '</div>' +
+    '<div class="form-group"><label class="form-label">Descripcion</label><input type="text" class="form-control" id="cf-description" value="' + escapeHtml(result.description || '') + '"></div>' +
+    '<button class="btn btn-primary" style="width:100%" onclick="saveConversionFromPhoto()">💾 Guardar Conversión</button>';
+}
+
+function showSimpleConfirm(result) {
+  var el = document.getElementById('photo-form-content');
+  if (!el) return;
+  var currencies = Currency.getAll();
+  var isIncome = result.transaction_kind === 'income';
+  var amount = result.amount || '';
+  var currency = result.currency || 'COP';
+  var date = result.date || new Date().toISOString().split('T')[0];
+  var concept = result.concept || '';
+  var category = result.category || 'Otro';
+  el.innerHTML = '<div style="background:' + (isIncome ? 'var(--accent-dim)' : 'var(--red-dim)') + ';border-radius:8px;padding:0.75rem;margin-bottom:1rem;font-size:0.82rem">' + (isIncome ? '💚 Ingreso detectado' : '🔴 Gasto detectado') + (result.platform ? ' via ' + escapeHtml(result.platform) : '') + '</div>' +
+    '<div class="form-group"><label class="form-label">Tipo</label>' +
+    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:0.5rem">' +
+    '<label style="display:flex;align-items:center;gap:0.5rem;padding:0.5rem;background:var(--bg-input);border:1px solid var(--border);border-radius:6px;cursor:pointer"><input type="radio" name="cf-type" value="Gasto" ' + (!isIncome ? 'checked' : '') + '> Gasto</label>' +
+    '<label style="display:flex;align-items:center;gap:0.5rem;padding:0.5rem;background:var(--bg-input);border:1px solid var(--border);border-radius:6px;cursor:pointer"><input type="radio" name="cf-type" value="Ingreso" ' + (isIncome ? 'checked' : '') + '> Ingreso</label>' +
+    '</div></div>' +
+    '<div class="form-group"><label class="form-label">Clasificacion</label><select class="form-control" id="cf-simple-classification"><option value="Empresa">Empresa</option><option value="Personal">Personal</option><option value="Mixto">Mixto</option></select></div>' +
+    '<div class="form-row">' +
+    '<div class="form-group"><label class="form-label">Monto</label><input type="number" class="form-control" id="cf-simple-amount" value="' + amount + '" step="any"></div>' +
+    '<div class="form-group"><label class="form-label">Divisa</label><select class="form-control" id="cf-simple-currency">' + currencies.map(function(c){ return '<option value="'+c.code+'" '+(c.code===currency?'selected':'')+'>'+c.code+'</option>'; }).join('') + '</select></div>' +
+    '</div>' +
+    '<div class="form-row">' +
+    '<div class="form-group"><label class="form-label">Fecha</label><input type="date" class="form-control" id="cf-simple-date" value="' + date + '"></div>' +
+    '<div class="form-group"><label class="form-label">Categoria</label><select class="form-control" id="cf-simple-category">' + CATEGORIES.map(function(c){ return '<option value="'+c+'" '+(c===category?'selected':'')+'>'+c+'</option>'; }).join('') + '</select></div>' +
+    '</div>' +
+    '<div class="form-group"><label class="form-label">Descripcion</label><input type="text" class="form-control" id="cf-simple-description" value="' + escapeHtml(concept) + '"></div>' +
+    '<button class="btn btn-primary" style="width:100%" onclick="saveSimpleFromPhoto()">💾 Guardar</button>';
+}
+
+function showUnknownForm(result) {
+  var el = document.getElementById('photo-form-content');
+  if (!el) return;
+  el.innerHTML = '<div style="background:var(--yellow-dim);border:1px solid rgba(251,191,36,0.3);border-radius:8px;padding:0.75rem;margin-bottom:1rem;font-size:0.85rem;color:var(--yellow)">⚠️ ' + escapeHtml(result.notes || 'No pude determinar el tipo. Selecciona manualmente:') + '</div>' +
+    '<div style="display:flex;flex-direction:column;gap:0.75rem">' +
+    '<button class="btn btn-secondary" onclick="showRegisterTab(\'conversion\')">💱 Es una Conversión entre divisas</button>' +
+    '<button class="btn btn-secondary" onclick="showRegisterTab(\'manual\')">✏️ Es un Ingreso o Gasto simple</button>' +
+    '</div>';
+}
+
+async function saveConversionFromPhoto() {
+  var fromAmount = parseFloat(document.getElementById('cf-from-amount').value);
+  var fromCurrency = document.getElementById('cf-from-currency').value;
+  var toAmount = parseFloat(document.getElementById('cf-to-amount').value);
+  var toCurrency = document.getElementById('cf-to-currency').value;
+  var date = document.getElementById('cf-date').value;
+  var classification = document.getElementById('cf-classification').value;
+  var description = document.getElementById('cf-description').value;
+  if (!fromAmount || !toAmount || !date) { showToast('Completa todos los campos', 'error'); return; }
+  var rate = toAmount / fromAmount;
+  var desc = description || ('Conversion ' + fromCurrency + ' a ' + toCurrency);
+  var txOut = { id: generateId(), date: date, type: 'Gasto', classification: classification, amount: fromAmount, currency: fromCurrency, category: 'Conversion', description: desc + ' [SALIDA]', percentage: '', originalAmount: fromAmount, originalCurrency: fromCurrency, exchangeRate: rate };
+  var txIn = { id: generateId(), date: date, type: 'Ingreso', classification: classification, amount: toAmount, currency: toCurrency, category: 'Conversion', description: desc + ' [ENTRADA]', percentage: '', originalAmount: fromAmount, originalCurrency: fromCurrency, exchangeRate: rate };
+  showLoading('Guardando...');
+  try {
+    await GoogleSheets.addTransaction(App.spreadsheetId, txOut);
+    await GoogleSheets.addTransaction(App.spreadsheetId, txIn);
+    App.transactions.push(txOut);
+    App.transactions.push(txIn);
+    Storage.setTransactionsCache(App.transactions);
+    hideLoading();
+    showToast('Conversion guardada ✓', 'success');
+    renderRegister();
+  } catch(err) { hideLoading(); showToast('Error: ' + err.message, 'error'); }
+}
+
+async function saveSimpleFromPhoto() {
+  var typeEl = document.querySelector('input[name="cf-type"]:checked');
+  var type = typeEl ? typeEl.value : 'Gasto';
+  var amount = parseFloat(document.getElementById('cf-simple-amount').value);
+  var currency = document.getElementById('cf-simple-currency').value;
+  var date = document.getElementById('cf-simple-date').value;
+  var classification = document.getElementById('cf-simple-classification').value;
+  var category = document.getElementById('cf-simple-category').value;
+  var description = document.getElementById('cf-simple-description').value;
+  if (!amount || !date) { showToast('Completa los campos requeridos', 'error'); return; }
+  var tx = { id: generateId(), date: date, type: type, classification: type === 'Ingreso' ? '' : classification, amount: amount, currency: currency, category: type === 'Gasto' ? category : '', description: description, percentage: '', originalAmount: '', originalCurrency: '', exchangeRate: '' };
+  showLoading('Guardando...');
+  try {
+    await GoogleSheets.addTransaction(App.spreadsheetId, tx);
+    App.transactions.push(tx);
+    Storage.setTransactionsCache(App.transactions);
+    hideLoading();
+    showToast('Guardado ✓', 'success');
+    renderRegister();
+  } catch(err) { hideLoading(); showToast('Error: ' + err.message, 'error'); }
 }
 
 async function saveConversion() {
