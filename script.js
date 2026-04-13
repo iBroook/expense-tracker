@@ -419,133 +419,178 @@ function renderDashboard() {
 // ============================================================
 
 function renderRegister() {
-  const content = document.getElementById('tab-content');
-  const currencies = Currency.getAll();
+  var content = document.getElementById('tab-content');
+  var currencies = Currency.getAll();
 
-  content.innerHTML = `
-    <div class="top-bar">
-      <div class="page-title">Registrar Transacción</div>
-      <button class="btn btn-ghost btn-sm hamburger" onclick="toggleSidebar()">☰</button>
-    </div>
+  content.innerHTML = '<div class="top-bar">' +
+    '<div class="page-title">Registrar Transaccion</div>' +
+    '<button class="btn btn-ghost btn-sm hamburger" onclick="toggleSidebar()">☰</button>' +
+    '</div>' +
 
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:1.5rem">
-      <!-- Panel: Foto -->
-      <div class="card">
-        <div class="card-header">
-          <span class="card-title">📷 Subir Foto</span>
-          <span style="font-size:0.75rem;color:var(--text-muted)">IA extrae los datos</span>
-        </div>
+    // Tabs de tipo de registro
+    '<div style="display:flex;gap:0.5rem;margin-bottom:1.5rem">' +
+    '<button class="btn btn-primary" id="tab-photo" onclick="showRegisterTab(\'photo\')">📷 Subir Foto</button>' +
+    '<button class="btn btn-secondary" id="tab-manual" onclick="showRegisterTab(\'manual\')">✏️ Manual</button>' +
+    '<button class="btn btn-secondary" id="tab-conversion" onclick="showRegisterTab(\'conversion\')">💱 Conversion</button>' +
+    '</div>' +
 
-        <div class="upload-zone" id="upload-zone">
-          <span class="upload-icon">🧾</span>
-          <div class="upload-text">
-            <strong>Arrastra o clic aquí</strong><br>
-            Factura, captura de Binance, recibo...
-          </div>
-          <input type="file" id="photo-input" accept="image/*" onchange="handlePhotoUpload(event)">
-        </div>
+    // Panel foto
+    '<div id="panel-photo" style="display:grid;grid-template-columns:1fr 1fr;gap:1.5rem">' +
+      '<div class="card">' +
+        '<div class="card-header"><span class="card-title">📷 Subir Foto</span></div>' +
+        '<div class="upload-zone" id="upload-zone">' +
+          '<span class="upload-icon">🧾</span>' +
+          '<div class="upload-text"><strong>Arrastra o clic aqui</strong><br>Factura, Binance, recibo...</div>' +
+          '<input type="file" id="photo-input" accept="image/*" onchange="handlePhotoUpload(event)">' +
+        '</div>' +
+        '<div id="upload-preview" style="display:none" class="upload-preview"></div>' +
+        '<div id="analysis-result" style="display:none;margin-top:1rem"></div>' +
+        '<button id="analyze-btn" class="btn btn-primary" style="width:100%;margin-top:1rem;display:none" onclick="analyzePhoto()">🔍 Analizar con IA</button>' +
+      '</div>' +
+      '<div class="card" id="photo-form-panel">' +
+        '<div class="card-header"><span class="card-title">✏️ Confirmar datos</span></div>' +
+        '<div class="empty-state"><div class="empty-icon">👈</div><p>Sube y analiza una foto para ver los datos aqui</p></div>' +
+      '</div>' +
+    '</div>' +
 
-        <div id="upload-preview" style="display:none" class="upload-preview"></div>
+    // Panel manual
+    '<div id="panel-manual" style="display:none">' +
+      '<div class="card" style="max-width:600px">' +
+        '<div class="card-header"><span class="card-title">✏️ Registro Manual</span></div>' +
+        renderTransactionForm(currencies) +
+        '<button class="btn btn-primary" style="width:100%" onclick="saveTransaction()">💾 Guardar</button>' +
+      '</div>' +
+    '</div>' +
 
-        <div id="analysis-result" style="display:none;margin-top:1rem"></div>
+    // Panel conversion
+    '<div id="panel-conversion" style="display:none">' +
+      '<div class="card" style="max-width:600px">' +
+        '<div class="card-header">' +
+          '<span class="card-title">💱 Registrar Conversion entre Divisas</span>' +
+        '</div>' +
+        '<p style="font-size:0.85rem;color:var(--text-secondary);margin-bottom:1.25rem">' +
+          'Usa esto cuando conviertas dinero entre divisas: USD→USDT, USDT→COP, USD→COP, etc. ' +
+          'Se crean dos transacciones automaticamente (un gasto y un ingreso).' +
+        '</p>' +
+        '<div class="form-row">' +
+          '<div class="form-group">' +
+            '<label class="form-label">Divisa que SALE <span class="required">*</span></label>' +
+            '<select class="form-control" id="conv-from-currency">' +
+              currencies.map(function(c) { return '<option value="' + c.code + '">' + c.code + ' — ' + c.name + '</option>'; }).join('') +
+            '</select>' +
+          '</div>' +
+          '<div class="form-group">' +
+            '<label class="form-label">Monto que SALE <span class="required">*</span></label>' +
+            '<input type="number" class="form-control" id="conv-from-amount" placeholder="0.00" step="any" min="0">' +
+          '</div>' +
+        '</div>' +
+        '<div style="text-align:center;font-size:1.5rem;margin:0.5rem 0;color:var(--accent)">↓</div>' +
+        '<div class="form-row">' +
+          '<div class="form-group">' +
+            '<label class="form-label">Divisa que ENTRA <span class="required">*</span></label>' +
+            '<select class="form-control" id="conv-to-currency">' +
+              currencies.map(function(c) { return '<option value="' + c.code + '">' + c.code + ' — ' + c.name + '</option>'; }).join('') +
+            '</select>' +
+          '</div>' +
+          '<div class="form-group">' +
+            '<label class="form-label">Monto que ENTRA <span class="required">*</span></label>' +
+            '<input type="number" class="form-control" id="conv-to-amount" placeholder="0.00" step="any" min="0">' +
+          '</div>' +
+        '</div>' +
+        '<div class="form-row">' +
+          '<div class="form-group">' +
+            '<label class="form-label">Fecha <span class="required">*</span></label>' +
+            '<input type="date" class="form-control" id="conv-date" value="' + new Date().toISOString().split('T')[0] + '">' +
+          '</div>' +
+          '<div class="form-group">' +
+            '<label class="form-label">Plataforma</label>' +
+            '<input type="text" class="form-control" id="conv-platform" placeholder="Binance P2P, Bancolombia...">' +
+          '</div>' +
+        '</div>' +
+        '<div class="form-group">' +
+          '<label class="form-label">Clasificacion</label>' +
+          '<select class="form-control" id="conv-classification">' +
+            '<option value="Empresa">Empresa</option>' +
+            '<option value="Personal">Personal</option>' +
+            '<option value="Mixto">Mixto</option>' +
+          '</select>' +
+        '</div>' +
+        '<div class="form-group">' +
+          '<label class="form-label">Descripcion</label>' +
+          '<input type="text" class="form-control" id="conv-description" placeholder="Ej: Venta USDT P2P Binance">' +
+        '</div>' +
+        '<div style="background:var(--bg-input);border:1px solid var(--border);border-radius:8px;padding:1rem;margin-bottom:1.25rem;font-size:0.85rem;color:var(--text-secondary)">' +
+          '💡 Se crearan 2 transacciones: un <span style="color:var(--red)">Gasto</span> en la divisa que sale y un <span style="color:var(--accent)">Ingreso</span> en la divisa que entra.' +
+        '</div>' +
+        '<button class="btn btn-primary" style="width:100%" onclick="saveConversion()">💾 Registrar Conversion</button>' +
+      '</div>' +
+    '</div>';
+}
 
-        <button id="analyze-btn" class="btn btn-primary" style="width:100%;margin-top:1rem;display:none" onclick="analyzePhoto()">
-          🔍 Analizar con IA
-        </button>
-      </div>
+function showRegisterTab(tab) {
+  document.getElementById('panel-photo').style.display = tab === 'photo' ? 'grid' : 'none';
+  document.getElementById('panel-manual').style.display = tab === 'manual' ? 'block' : 'none';
+  document.getElementById('panel-conversion').style.display = tab === 'conversion' ? 'block' : 'none';
 
-      <!-- Panel: Formulario -->
-      <div class="card">
-        <div class="card-header">
-          <span class="card-title">✏️ Datos de la Transacción</span>
-        </div>
+  document.getElementById('tab-photo').className = 'btn ' + (tab === 'photo' ? 'btn-primary' : 'btn-secondary');
+  document.getElementById('tab-manual').className = 'btn ' + (tab === 'manual' ? 'btn-primary' : 'btn-secondary');
+  document.getElementById('tab-conversion').className = 'btn ' + (tab === 'conversion' ? 'btn-primary' : 'btn-secondary');
+}
 
-        <div class="form-group">
-          <label class="form-label">Tipo <span class="required">*</span></label>
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.5rem">
-            <label style="display:flex;align-items:center;gap:0.5rem;padding:0.6rem;background:var(--bg-input);border:1px solid var(--border);border-radius:6px;cursor:pointer">
-              <input type="radio" name="tx-type" value="Gasto" checked onchange="onTypeChange()"> Gasto
-            </label>
-            <label style="display:flex;align-items:center;gap:0.5rem;padding:0.6rem;background:var(--bg-input);border:1px solid var(--border);border-radius:6px;cursor:pointer">
-              <input type="radio" name="tx-type" value="Ingreso" onchange="onTypeChange()"> Ingreso
-            </label>
-          </div>
-        </div>
-
-        <div id="classification-group" class="form-group">
-          <label class="form-label">Clasificación <span class="required">*</span></label>
-          <select class="form-control" id="tx-classification" onchange="onClassificationChange()">
-            <option value="Empresa">Empresa</option>
-            <option value="Personal">Personal</option>
-            <option value="Mixto">Mixto</option>
-          </select>
-        </div>
-
-        <div id="percentage-group" class="form-group" style="display:none">
-          <label class="form-label">% Empresa (del total)</label>
-          <input type="number" class="form-control" id="tx-percentage" min="1" max="99" value="50" placeholder="50">
-          <div class="form-hint">El resto se asigna a Personal</div>
-        </div>
-
-        <div class="form-row">
-          <div class="form-group">
-            <label class="form-label">Monto <span class="required">*</span></label>
-            <input type="number" class="form-control" id="tx-amount" placeholder="0.00" step="any" min="0">
-          </div>
-          <div class="form-group">
-            <label class="form-label">Divisa <span class="required">*</span></label>
-            <select class="form-control" id="tx-currency">
-              ${currencies.map(c => `<option value="${c.code}">${c.code} — ${c.name}</option>`).join('')}
-            </select>
-          </div>
-        </div>
-
-        <div class="form-row">
-          <div class="form-group">
-            <label class="form-label">Fecha <span class="required">*</span></label>
-            <input type="date" class="form-control" id="tx-date" value="${new Date().toISOString().split('T')[0]}">
-          </div>
-          <div class="form-group" id="category-group">
-            <label class="form-label">Categoría</label>
-            <select class="form-control" id="tx-category">
-              ${CATEGORIES.map(c => `<option value="${c}">${c}</option>`).join('')}
-            </select>
-          </div>
-        </div>
-
-        <div class="form-group">
-          <label class="form-label">Descripción</label>
-          <input type="text" class="form-control" id="tx-description" placeholder="Descripción opcional...">
-        </div>
-
-        <button class="btn btn-primary" style="width:100%" onclick="saveTransaction()">
-          💾 Guardar Transacción
-        </button>
-      </div>
-    </div>
-  `;
+function renderTransactionForm(currencies) {
+  return '<div class="form-group">' +
+    '<label class="form-label">Tipo <span class="required">*</span></label>' +
+    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:0.5rem">' +
+    '<label style="display:flex;align-items:center;gap:0.5rem;padding:0.6rem;background:var(--bg-input);border:1px solid var(--border);border-radius:6px;cursor:pointer">' +
+    '<input type="radio" name="tx-type" value="Gasto" checked onchange="onTypeChange()"> Gasto</label>' +
+    '<label style="display:flex;align-items:center;gap:0.5rem;padding:0.6rem;background:var(--bg-input);border:1px solid var(--border);border-radius:6px;cursor:pointer">' +
+    '<input type="radio" name="tx-type" value="Ingreso" onchange="onTypeChange()"> Ingreso</label>' +
+    '</div></div>' +
+    '<div id="classification-group" class="form-group">' +
+    '<label class="form-label">Clasificacion</label>' +
+    '<select class="form-control" id="tx-classification" onchange="onClassificationChange()">' +
+    '<option value="Empresa">Empresa</option><option value="Personal">Personal</option><option value="Mixto">Mixto</option>' +
+    '</select></div>' +
+    '<div id="percentage-group" class="form-group" style="display:none">' +
+    '<label class="form-label">% Empresa</label>' +
+    '<input type="number" class="form-control" id="tx-percentage" min="1" max="99" value="50">' +
+    '</div>' +
+    '<div class="form-row">' +
+    '<div class="form-group"><label class="form-label">Monto <span class="required">*</span></label>' +
+    '<input type="number" class="form-control" id="tx-amount" placeholder="0.00" step="any" min="0"></div>' +
+    '<div class="form-group"><label class="form-label">Divisa <span class="required">*</span></label>' +
+    '<select class="form-control" id="tx-currency">' +
+    currencies.map(function(c) { return '<option value="' + c.code + '">' + c.code + '</option>'; }).join('') +
+    '</select></div></div>' +
+    '<div class="form-row">' +
+    '<div class="form-group"><label class="form-label">Fecha <span class="required">*</span></label>' +
+    '<input type="date" class="form-control" id="tx-date" value="' + new Date().toISOString().split('T')[0] + '"></div>' +
+    '<div class="form-group" id="category-group"><label class="form-label">Categoria</label>' +
+    '<select class="form-control" id="tx-category">' +
+    CATEGORIES.map(function(c) { return '<option value="' + c + '">' + c + '</option>'; }).join('') +
+    '</select></div></div>' +
+    '<div class="form-group"><label class="form-label">Descripcion</label>' +
+    '<input type="text" class="form-control" id="tx-description" placeholder="Descripcion opcional..."></div>';
 }
 
 function onTypeChange() {
-  const type = document.querySelector('input[name="tx-type"]:checked')?.value;
-  const classGroup = document.getElementById('classification-group');
-  const catGroup = document.getElementById('category-group');
-
+  var type = document.querySelector('input[name="tx-type"]:checked');
+  type = type ? type.value : 'Gasto';
+  var classGroup = document.getElementById('classification-group');
+  if (classGroup) classGroup.style.display = type === 'Ingreso' ? 'none' : 'block';
   if (type === 'Ingreso') {
-    classGroup.style.display = 'none';
-    document.getElementById('percentage-group').style.display = 'none';
+    var pctGroup = document.getElementById('percentage-group');
+    if (pctGroup) pctGroup.style.display = 'none';
   } else {
-    classGroup.style.display = 'block';
     onClassificationChange();
   }
 }
 
 function onClassificationChange() {
-  const cls = document.getElementById('tx-classification')?.value;
-  const pctGroup = document.getElementById('percentage-group');
-  if (pctGroup) {
-    pctGroup.style.display = cls === 'Mixto' ? 'block' : 'none';
-  }
+  var cls = document.getElementById('tx-classification');
+  cls = cls ? cls.value : 'Empresa';
+  var pctGroup = document.getElementById('percentage-group');
+  if (pctGroup) pctGroup.style.display = cls === 'Mixto' ? 'block' : 'none';
 }
 
 let photoFile = null;
