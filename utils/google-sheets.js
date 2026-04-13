@@ -90,15 +90,31 @@ const GoogleSheets = {
   },
 
   // Obtener info del usuario
-  async getUserInfo() {
+async getUserInfo() {
     const token = this.getToken();
     if (!token) throw new Error('No autenticado');
 
-    const response = await fetch(CONFIG.GOOGLE_USERINFO_URL, {
-      headers: { Authorization: `Bearer ${token}` }
-    });
+    try {
+      const response = await fetch(CONFIG.GOOGLE_USERINFO_URL, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
 
-    if (!response.ok) throw new Error('Error obteniendo info del usuario');
+      if (!response.ok) {
+        // Si falla userinfo, crear usuario básico con el token
+        const info = { name: 'Usuario', email: '', picture: '' };
+        Storage.setUserInfo(info);
+        return info;
+      }
+
+      const info = await response.json();
+      Storage.setUserInfo(info);
+      return info;
+    } catch (e) {
+      const info = { name: 'Usuario', email: '', picture: '' };
+      Storage.setUserInfo(info);
+      return info;
+    }
+  },
     const info = await response.json();
     Storage.setUserInfo(info);
     return info;
