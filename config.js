@@ -17,7 +17,7 @@ const CONFIG = {
   GOOGLE_USERINFO_URL: 'https://www.googleapis.com/oauth2/v3/userinfo',
 
   // Claude API
-  CLAUDE_API_URL: 'https://api.anthropic.com/v1/messages',
+  CLAUDE_API_URL: 'https://fintrack-proxy.TUNOMBRE.workers.dev',
   CLAUDE_MODEL: 'claude-opus-4-6',
 
   // App
