@@ -670,29 +670,27 @@ async function analyzePhoto() {
 }
 
 function displayAnalysisResult(result) {
-  const container = document.getElementById('analysis-result');
-  const confidence = Math.round((result.confidence || 0) * 100);
-  const hasUncertain = result.uncertain_fields && result.uncertain_fields.length > 0;
+  var container = document.getElementById('analysis-result');
+  if (!container) return;
+  var confidence = Math.round((result.confidence || 0) * 100);
+  var hasUncertain = result.uncertain_fields && result.uncertain_fields.length > 0;
 
   container.style.display = 'block';
-  container.innerHTML = `
-    <div class="analysis-card">
-      <div class="analysis-header">
-        ✨ Análisis IA — Confianza: ${confidence}%
-      </div>
-      <div class="confidence-bar">
-        <div class="confidence-fill" style="width:${confidence}%"></div>
-      </div>
-      ${hasUncertain ? `
-        <div style="margin-top:0.75rem;padding:0.6rem;background:var(--yellow-dim);border-radius:6px;font-size:0.8rem;color:var(--yellow)">
-          ⚠️ Verifica: ${result.uncertain_fields.join(', ')}
-        </div>
-      ` : ''}
-      ${result.notes ? `
-        <div style="margin-top:0.75rem;font-size:0.8rem;color:var(--text-muted)">${escapeHtml(result.notes)}</div>
-      ` : ''}
-    </div>
-  `;
+  container.innerHTML = '<div class="analysis-card">' +
+    '<div class="analysis-header">✨ Análisis IA — Confianza: ' + confidence + '%</div>' +
+    '<div class="confidence-bar"><div class="confidence-fill" style="width:' + confidence + '%"></div></div>' +
+    (hasUncertain ? '<div style="margin-top:0.75rem;padding:0.6rem;background:var(--yellow-dim);border-radius:6px;font-size:0.8rem;color:var(--yellow)">⚠️ Verifica: ' + result.uncertain_fields.join(', ') + '</div>' : '') +
+    (result.notes ? '<div style="margin-top:0.75rem;font-size:0.8rem;color:var(--text-muted)">' + escapeHtml(result.notes) + '</div>' : '') +
+    '</div>';
+
+  // Mostrar formulario según tipo
+  if (result.transaction_kind === 'unknown') {
+    showUnknownForm(result);
+  } else if (result.transaction_kind === 'conversion') {
+    showConversionConfirm(result);
+  } else {
+    showSimpleConfirm(result);
+  }
 }
 
 async function saveConversion() {
