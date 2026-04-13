@@ -695,6 +695,78 @@ function displayAnalysisResult(result) {
   `;
 }
 
+async function saveConversion() {
+  var fromCurrency = document.getElementById('conv-from-currency').value;
+  var fromAmount = parseFloat(document.getElementById('conv-from-amount').value);
+  var toCurrency = document.getElementById('conv-to-currency').value;
+  var toAmount = parseFloat(document.getElementById('conv-to-amount').value);
+  var date = document.getElementById('conv-date').value;
+  var platform = document.getElementById('conv-platform').value;
+  var classification = document.getElementById('conv-classification').value;
+  var description = document.getElementById('conv-description').value;
+
+  if (!fromAmount || isNaN(fromAmount) || !toAmount || isNaN(toAmount) || !date) {
+    showToast('Completa todos los campos requeridos', 'error');
+    return;
+  }
+  if (fromCurrency === toCurrency) {
+    showToast('Las divisas de origen y destino deben ser diferentes', 'error');
+    return;
+  }
+
+  var desc = description || ('Conversion ' + fromCurrency + ' a ' + toCurrency + (platform ? ' via ' + platform : ''));
+  var rate = toAmount / fromAmount;
+
+  var txOut = {
+    id: generateId(),
+    date: date,
+    type: 'Gasto',
+    classification: classification,
+    amount: fromAmount,
+    currency: fromCurrency,
+    category: 'Conversion',
+    description: desc + ' [SALIDA]',
+    percentage: '',
+    originalAmount: fromAmount,
+    originalCurrency: fromCurrency,
+    exchangeRate: rate
+  };
+
+  var txIn = {
+    id: generateId(),
+    date: date,
+    type: 'Ingreso',
+    classification: classification,
+    amount: toAmount,
+    currency: toCurrency,
+    category: 'Conversion',
+    description: desc + ' [ENTRADA]',
+    percentage: '',
+    originalAmount: fromAmount,
+    originalCurrency: fromCurrency,
+    exchangeRate: rate
+  };
+
+  showLoading('Guardando conversion...');
+  try {
+    await GoogleSheets.addTransaction(App.spreadsheetId, txOut);
+    await GoogleSheets.addTransaction(App.spreadsheetId, txIn);
+    App.transactions.push(txOut);
+    App.transactions.push(txIn);
+    Storage.setTransactionsCache(App.transactions);
+    hideLoading();
+    showToast('Conversion registrada: -' + fromAmount + ' ' + fromCurrency + ' / +' + toAmount + ' ' + toCurrency, 'success');
+    renderRegister();
+  } catch(err) {
+    App.transactions.push(txOut);
+    App.transactions.push(txIn);
+    Storage.setTransactionsCache(App.transactions);
+    hideLoading();
+    showToast('Guardado localmente', 'info');
+    renderRegister();
+  }
+}
+
 async function saveTransaction() {
   const type = document.querySelector('input[name="tx-type"]:checked')?.value;
   const amount = parseFloat(document.getElementById('tx-amount')?.value);
