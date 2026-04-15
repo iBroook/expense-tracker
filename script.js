@@ -364,7 +364,7 @@ function renderDashboard() {
     </div>
 
     <!-- Resumen mensual -->
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1.5rem">
+    <div class="dashboard-two-col" style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1.5rem">
       <div class="card">
         <div class="card-header">
           <span class="card-title">Resumen ${monthNames[month-1]} ${year}</span>
@@ -435,8 +435,7 @@ function renderRegister() {
     '</div>' +
 
     // Panel foto
-    '<div id="panel-photo" style="display:grid;grid-template-columns:1fr 1fr;gap:1.5rem">' +
-      '<div class="card">' +
+    '<div id="panel-photo" style="display:grid;grid-template-columns:1fr 1fr;gap:1.5rem" class="panel-photo-grid">' +      '<div class="card">' +
         '<div class="card-header"><span class="card-title">📷 Subir Foto</span></div>' +
         '<div class="upload-zone" id="upload-zone">' +
           '<span class="upload-icon">🧾</span>' +
