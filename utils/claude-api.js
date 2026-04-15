@@ -8,33 +8,49 @@ var ClaudeAPI = {
 
     var today = new Date().toISOString().split('T')[0];
 
-    var prompt = 'Analiza esta imagen financiera con mucho detalle.\n\n' +
-      'PRIMERO identifica el tipo de transaccion:\n\n' +
-      'TIPO A - CONVERSION entre divisas propias:\n' +
-      '- Compra de USDT con USD\n' +
-      '- Venta de USDT por COP (P2P Binance)\n' +
-      '- Cualquier intercambio donde el dinero sigue siendo tuyo\n' +
-      '- En Binance P2P: cuando TU eres el que compra o vende\n\n' +
-      'TIPO B - PAGO a otra persona:\n' +
-      '- Binance Pay enviado a otro usuario\n' +
-      '- Transferencia a cuenta de otra persona\n\n' +
-      'TIPO C - INGRESO simple (una divisa entra)\n\n' +
-      'TIPO D - GASTO simple (una divisa sale)\n\n' +
-      'Responde UNICAMENTE con JSON valido sin texto adicional.\n\n' +
-      'Para TIPO A usa:\n' +
-      '{"transaction_kind":"conversion","from_amount":<numero>,"from_currency":"<divisa que pierdes>","to_amount":<numero>,"to_currency":"<divisa que ganas>","date":"<YYYY-MM-DD>","description":"<texto>","platform":"<Binance P2P|Binance Convert|etc>","confidence":<0-1>,"uncertain_fields":[],"notes":""}\n\n' +
-      'Para TIPO B usa:\n' +
-      '{"transaction_kind":"payment","amount":<numero>,"currency":"<divisa>","date":"<YYYY-MM-DD>","concept":"<a quien>","platform":"<Binance Pay|etc>","confidence":<0-1>,"uncertain_fields":[],"notes":""}\n\n' +
-      'Para TIPO C usa:\n' +
-      '{"transaction_kind":"income","amount":<numero>,"currency":"<divisa>","date":"<YYYY-MM-DD>","concept":"<descripcion>","confidence":<0-1>,"uncertain_fields":[],"notes":""}\n\n' +
-      'Para TIPO D usa:\n' +
-      '{"transaction_kind":"expense","amount":<numero>,"currency":"<divisa>","date":"<YYYY-MM-DD>","concept":"<descripcion>","category":"<Software|Comida|Transporte|Mercancia|Luz|Seguro|Seguridad Social|Otro>","confidence":<0-1>,"uncertain_fields":[],"notes":""}\n\n' +
-      'REGLA IMPORTANTE para conversiones: el campo to_amount debe ser el monto NETO que realmente recibes.\n' +
-      'Si hay un campo "Fee", "Comision" o similar, restalo del "Receive Quantity" antes de poner to_amount.\n' +
-      'Ejemplo: Receive Quantity 358.92 USDT - Fee 1.25 USDT = to_amount 357.67\n' +
-      'Si no hay fee visible, usa el monto tal como aparece.\n' +
-      'Si no puedes determinar el tipo usa: {"transaction_kind":"unknown","notes":"<razon>"}\n' +
-      'Hoy es: ' + today;
+    var prompt = 'Analiza esta imagen financiera y extrae TODOS los movimientos que encuentres.\n\n' +
+      'Puede ser una sola transaccion o multiples (extracto bancario, lista de movimientos, etc).\n\n' +
+      'Para CADA movimiento identifica el tipo:\n\n' +
+      'TIPO conversion: Binance P2P, compra/venta USDT, cambio entre divisas propias\n' +
+      'TIPO payment: Binance Pay a otro usuario, transferencia a tercero\n' +
+      'TIPO income: Pago recibido, ingreso, abono\n' +
+      'TIPO expense: Compra, pago de servicio, debito, cargo\n\n' +
+      'REGLA DE COMISIONES: Para conversiones, el to_amount debe ser el monto NETO.\n' +
+      'Si hay Fee o comision, restarlo: Receive 358.92 - Fee 1.25 = to_amount 357.67\n\n' +
+      'Responde UNICAMENTE con un array JSON valido, sin texto adicional:\n\n' +
+      '[\n' +
+      '  {\n' +
+      '    "transaction_kind": "expense",\n' +
+      '    "amount": 49900,\n' +
+      '    "currency": "COP",\n' +
+      '    "date": "2026-04-15",\n' +
+      '    "concept": "PPRO*MICROSOFT",\n' +
+      '    "category": "Software",\n' +
+      '    "confidence": 0.97,\n' +
+      '    "uncertain_fields": [],\n' +
+      '    "notes": ""\n' +
+      '  },\n' +
+      '  {\n' +
+      '    "transaction_kind": "expense",\n' +
+      '    "amount": 9900,\n' +
+      '    "currency": "COP",\n' +
+      '    "date": "2026-04-15",\n' +
+      '    "concept": "APPLE.COM/BILL",\n' +
+      '    "category": "Software",\n' +
+      '    "confidence": 0.95,\n' +
+      '    "uncertain_fields": [],\n' +
+      '    "notes": ""\n' +
+      '  }\n' +
+      ']\n\n' +
+      'Para conversiones usar:\n' +
+      '{"transaction_kind":"conversion","from_amount":379.01,"from_currency":"USD","to_amount":357.67,"to_currency":"USDT","date":"2026-04-14","description":"Compra USDT Binance P2P","platform":"Binance P2P","confidence":0.97,"uncertain_fields":[],"notes":""}\n\n' +
+      'IMPORTANTE:\n' +
+      '- Devuelve SIEMPRE un array, aunque sea de un solo elemento\n' +
+      '- Mantén el orden en que aparecen en la imagen (de arriba hacia abajo)\n' +
+      '- Si no puedes determinar un campo, agrégalo a uncertain_fields\n' +
+      '- Para gastos en COP de extracto bancario, los montos negativos son gastos\n' +
+      '- Para ingresos/abonos, los montos positivos son ingresos\n' +
+      '- Hoy es: ' + today;
 
     return fetch(CONFIG.CLAUDE_API_URL, {
       method: 'POST',
@@ -45,7 +61,7 @@ var ClaudeAPI = {
       },
       body: JSON.stringify({
         model: CONFIG.CLAUDE_MODEL,
-        max_tokens: 1024,
+        max_tokens: 2048,
         messages: [{
           role: 'user',
           content: [
@@ -63,9 +79,17 @@ var ClaudeAPI = {
       return response.json();
     }).then(function(data) {
       var text = data.content[0] ? data.content[0].text : '';
-      var jsonMatch = text.match(/\{[\s\S]*\}/);
-      if (!jsonMatch) throw new Error('No se pudo extraer informacion de la imagen');
-      return JSON.parse(jsonMatch[0]);
+      // Buscar array JSON
+      var jsonMatch = text.match(/\[[\s\S]*\]/);
+      if (!jsonMatch) {
+        // Si no hay array, intentar objeto único y envolverlo
+        var objMatch = text.match(/\{[\s\S]*\}/);
+        if (!objMatch) throw new Error('No se pudo extraer informacion de la imagen');
+        return [JSON.parse(objMatch[0])];
+      }
+      var result = JSON.parse(jsonMatch[0]);
+      // Asegurar que siempre sea array
+      return Array.isArray(result) ? result : [result];
     });
   },
 
