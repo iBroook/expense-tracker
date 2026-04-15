@@ -1345,8 +1345,8 @@ function renderReports() {
       <button class="btn btn-ghost btn-sm hamburger" onclick="toggleSidebar()">☰</button>
     </div>
 
-      <div class="dashboard-two-col" style="display:grid;grid-template-columns:1fr 1fr;gap:1.5rem">
-        <div class="card">
+      <div class="reports-two-col" style="display:grid;grid-template-columns:1fr 1fr;gap:1.5rem">        
+          <div class="card">
         <div class="card-header">
           <span class="card-title">📥 Exportar a Excel</span>
         </div>
