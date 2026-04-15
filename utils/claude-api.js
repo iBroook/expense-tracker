@@ -29,6 +29,10 @@ var ClaudeAPI = {
       '{"transaction_kind":"income","amount":<numero>,"currency":"<divisa>","date":"<YYYY-MM-DD>","concept":"<descripcion>","confidence":<0-1>,"uncertain_fields":[],"notes":""}\n\n' +
       'Para TIPO D usa:\n' +
       '{"transaction_kind":"expense","amount":<numero>,"currency":"<divisa>","date":"<YYYY-MM-DD>","concept":"<descripcion>","category":"<Software|Comida|Transporte|Mercancia|Luz|Seguro|Seguridad Social|Otro>","confidence":<0-1>,"uncertain_fields":[],"notes":""}\n\n' +
+      'REGLA IMPORTANTE para conversiones: el campo to_amount debe ser el monto NETO que realmente recibes.\n' +
+      'Si hay un campo "Fee", "Comision" o similar, restalo del "Receive Quantity" antes de poner to_amount.\n' +
+      'Ejemplo: Receive Quantity 358.92 USDT - Fee 1.25 USDT = to_amount 357.67\n' +
+      'Si no hay fee visible, usa el monto tal como aparece.\n' +
       'Si no puedes determinar el tipo usa: {"transaction_kind":"unknown","notes":"<razon>"}\n' +
       'Hoy es: ' + today;
 
