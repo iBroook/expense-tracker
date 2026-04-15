@@ -1095,6 +1095,7 @@ select.form-control option { background: var(--bg-card); }
   .btn-icon { padding: 0.4rem; font-size: 0.8rem; }
    .panel-photo-grid { display: flex !important; flex-direction: column !important; }
   .dashboard-two-col { display: flex !important; flex-direction: column !important; }
+  .reports-two-col { display: flex !important; flex-direction: column !important; }
 
 }
 
