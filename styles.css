@@ -70,7 +70,7 @@
 
 /* ---- Reset ---- */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-html { font-size: 16px; scroll-behavior: smooth; }
+html { font-size: 16px; scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
 body {
   font-family: var(--font-sans);
   background: var(--bg-primary);
@@ -1045,11 +1045,85 @@ select.form-control option { background: var(--bg-card); }
   .currency-grid { grid-template-columns: 1fr 1fr; }
   .filters-bar { flex-direction: column; }
   .top-bar { flex-wrap: wrap; gap: 0.75rem; }
+
+  /* Panel de registro: apilar verticalmente en móvil */
+  #panel-photo {
+    grid-template-columns: 1fr !important;
+  }
+
+  /* Tabs de registro más compactos */
+  #tab-photo, #tab-manual, #tab-conversion {
+    font-size: 0.78rem;
+    padding: 0.5rem 0.7rem;
+  }
+
+  /* Tablas con scroll horizontal */
+  .table-wrapper {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  table {
+    min-width: 600px;
+  }
+
+  /* Dashboard: resumen mensual apilado */
+  .main-content > div[style*="grid-template-columns:1fr 1fr"] {
+    display: flex !important;
+    flex-direction: column !important;
+  }
+
+  /* Cards más compactas */
+  .card { padding: 1rem; }
+
+  /* Stat cards en 2 columnas */
+  .stats-grid { grid-template-columns: 1fr 1fr; gap: 0.75rem; }
+
+  /* Top bar compacta */
+  .top-bar { gap: 0.5rem; }
+  .page-title { font-size: 0.95rem; }
+
+  /* Filtros en columna */
+  .filters-bar { gap: 0.5rem; }
+  .filter-group { width: 100%; }
+  .filter-select { width: 100%; }
+
+  /* Formulario de confirmación de foto full width */
+  #photo-form-panel { max-height: none !important; }
+
+  /* Botones de acciones en historial */
+  .btn-icon { padding: 0.4rem; font-size: 0.8rem; }
 }
 
 @media (max-width: 480px) {
   .stats-grid { grid-template-columns: 1fr; }
   .currency-grid { grid-template-columns: 1fr; }
-  .modal { padding: 1.5rem; }
-  .login-card { padding: 2rem 1.5rem; }
+  .modal { padding: 1.25rem; }
+  .login-card { padding: 1.5rem 1.25rem; }
+
+  /* Tabs de registro en una fila scrolleable */
+  #tab-photo, #tab-manual, #tab-conversion {
+    font-size: 0.72rem;
+    padding: 0.45rem 0.6rem;
+    white-space: nowrap;
+  }
+
+  /* Ocultar texto de tabs, dejar solo emoji en pantallas muy pequeñas */
+  .main-content { padding: 0.75rem; }
+
+  /* Análisis result más compacto */
+  .analysis-card { padding: 0.75rem; }
+
+  /* Upload zone más compacta */
+  .upload-zone { padding: 1.5rem 1rem; }
+  .upload-zone .upload-icon { font-size: 1.8rem; }
+
+  /* Stat values más pequeños */
+  .stat-value { font-size: 1.1rem; }
+
+  /* Summary tables apiladas */
+  .summary-table th, .summary-table td {
+    padding: 0.5rem 0.6rem;
+    font-size: 0.75rem;
+  }
 }
