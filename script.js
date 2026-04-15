@@ -565,12 +565,14 @@ function renderTransactionForm(currencies) {
     '<div class="form-group"><label class="form-label">Fecha <span class="required">*</span></label>' +
     '<input type="date" class="form-control" id="tx-date" value="' + new Date().toISOString().split('T')[0] + '"></div>' +
     '<div class="form-group" id="category-group"><label class="form-label">Categoria</label>' +
-    '<select class="form-control" id="tx-category" onchange="onCategoryChange(\'tx-category\', \'tx-new-category\')">' +
-    CATEGORIES.map(function(c) { return '<option value="' + c + '">' + c + '</option>'; }).join('') +
+    '<select class="form-control" id="tx-category" onchange="onCategoryChange(\'tx-category\', \'tx-new-category-wrap\')">' +    CATEGORIES.map(function(c) { return '<option value="' + c + '">' + c + '</option>'; }).join('') +
     '<option value="__new__">+ Agregar nueva categoria...</option>' +
     '</select>' +
-    '<input type="text" class="form-control" id="tx-new-category" placeholder="Escribe la nueva categoria..." style="display:none;margin-top:0.5rem">' +
-    '</div></div>' +
+    '<div style="display:none;margin-top:0.5rem;display:none" id="tx-new-category-wrap">' +
+    '<div style="display:flex;gap:0.5rem">' +
+    '<input type="text" class="form-control" id="tx-new-category" placeholder="Escribe la nueva categoria...">' +
+    '<button class="btn btn-primary btn-sm" onclick="confirmNewCategory(\'tx-category\', \'tx-new-category\')">✓</button>' +
+    '</div></div>' +    '</div></div>' +
     '<div class="form-group"><label class="form-label">Descripcion</label>' +
     '<input type="text" class="form-control" id="tx-description" placeholder="Descripcion opcional..."></div>';
 }
@@ -607,6 +609,38 @@ function onCategoryChange(selectId, inputId) {
     input.style.display = 'none';
     input.value = '';
   }
+}
+
+function confirmNewCategory(selectId, inputId) {
+  var select = document.getElementById(selectId);
+  var input = document.getElementById(inputId);
+  if (!select || !input) return;
+
+  var newCat = input.value.trim();
+  if (!newCat) return;
+
+  // Guardar en localStorage
+  var saved = Storage.get('custom_categories') || [];
+  if (!saved.includes(newCat)) {
+    saved.push(newCat);
+    Storage.set('custom_categories', saved);
+  }
+
+  // Agregar la nueva opción al select antes de __new__
+  var newOption = document.createElement('option');
+  newOption.value = newCat;
+  newOption.text = newCat;
+  var newOptEl = select.querySelector('option[value="__new__"]');
+  select.insertBefore(newOption, newOptEl);
+
+  // Seleccionar la nueva categoría
+  select.value = newCat;
+
+  // Ocultar input
+  input.style.display = 'none';
+  input.value = '';
+
+  showToast('Categoría "' + newCat + '" agregada', 'success');
 }
 
 function getSelectedCategory(selectId, inputId) {
