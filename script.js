@@ -566,9 +566,12 @@ function renderTransactionForm(currencies) {
     '<div class="form-group"><label class="form-label">Fecha <span class="required">*</span></label>' +
     '<input type="date" class="form-control" id="tx-date" value="' + new Date().toISOString().split('T')[0] + '"></div>' +
     '<div class="form-group" id="category-group"><label class="form-label">Categoria</label>' +
-    '<select class="form-control" id="tx-category">' +
+    '<select class="form-control" id="tx-category" onchange="onCategoryChange(\'tx-category\', \'tx-new-category\')">' +
     CATEGORIES.map(function(c) { return '<option value="' + c + '">' + c + '</option>'; }).join('') +
-    '</select></div></div>' +
+    '<option value="__new__">+ Agregar nueva categoria...</option>' +
+    '</select>' +
+    '<input type="text" class="form-control" id="tx-new-category" placeholder="Escribe la nueva categoria..." style="display:none;margin-top:0.5rem">' +
+    '</div></div>' +
     '<div class="form-group"><label class="form-label">Descripcion</label>' +
     '<input type="text" class="form-control" id="tx-description" placeholder="Descripcion opcional..."></div>';
 }
@@ -591,6 +594,39 @@ function onClassificationChange() {
   cls = cls ? cls.value : 'Empresa';
   var pctGroup = document.getElementById('percentage-group');
   if (pctGroup) pctGroup.style.display = cls === 'Mixto' ? 'block' : 'none';
+}
+
+function onCategoryChange(selectId, inputId) {
+  var select = document.getElementById(selectId);
+  var input = document.getElementById(inputId);
+  if (!select || !input) return;
+
+  if (select.value === '__new__') {
+    input.style.display = 'block';
+    input.focus();
+  } else {
+    input.style.display = 'none';
+    input.value = '';
+  }
+}
+
+function getSelectedCategory(selectId, inputId) {
+  var select = document.getElementById(selectId);
+  var input = document.getElementById(inputId);
+  if (!select) return 'Otro';
+
+  if (select.value === '__new__') {
+    var newCat = input ? input.value.trim() : '';
+    if (!newCat) return 'Otro';
+    // Guardar en localStorage para futuras sesiones
+    var saved = Storage.get('custom_categories') || [];
+    if (!saved.includes(newCat)) {
+      saved.push(newCat);
+      Storage.set('custom_categories', saved);
+    }
+    return newCat;
+  }
+  return select.value;
 }
 
 let photoFile = null;
@@ -703,7 +739,13 @@ function showSimpleConfirm(result) {
     '</div>' +
     '<div class="form-row">' +
     '<div class="form-group"><label class="form-label">Fecha</label><input type="date" class="form-control" id="cf-simple-date" value="' + date + '"></div>' +
-    '<div class="form-group"><label class="form-label">Categoria</label><select class="form-control" id="cf-simple-category">' + CATEGORIES.map(function(c){ return '<option value="'+c+'" '+(c===category?'selected':'')+'>'+c+'</option>'; }).join('') + '</select></div>' +
+    '<div class="form-group"><label class="form-label">Categoria</label>' +
+    '<select class="form-control" id="cf-simple-category" onchange="onCategoryChange(\'cf-simple-category\', \'cf-simple-new-category\')">' +
+    CATEGORIES.map(function(c){ return '<option value="'+c+'" '+(c===category?'selected':'')+'>'+c+'</option>'; }).join('') +
+    '<option value="__new__">+ Agregar nueva categoria...</option>' +
+    '</select>' +
+    '<input type="text" class="form-control" id="cf-simple-new-category" placeholder="Escribe la nueva categoria..." style="display:none;margin-top:0.5rem">' +
+    '</div>' +
     '</div>' +
     '<div class="form-group"><label class="form-label">Descripcion</label><input type="text" class="form-control" id="cf-simple-description" value="' + escapeHtml(concept) + '"></div>' +
     '<button class="btn btn-primary" style="width:100%" onclick="saveSimpleFromPhoto()">💾 Guardar</button>';
@@ -752,8 +794,7 @@ async function saveSimpleFromPhoto() {
   var currency = document.getElementById('cf-simple-currency').value;
   var date = document.getElementById('cf-simple-date').value;
   var classification = document.getElementById('cf-simple-classification').value;
-  var category = document.getElementById('cf-simple-category').value;
-  var description = document.getElementById('cf-simple-description').value;
+  var category = getSelectedCategory('cf-simple-category', 'cf-simple-new-category');  var description = document.getElementById('cf-simple-description').value;
   if (!amount || !date) { showToast('Completa los campos requeridos', 'error'); return; }
   var tx = { id: generateId(), date: date, type: type, classification: type === 'Ingreso' ? '' : classification, amount: amount, currency: currency, category: type === 'Gasto' ? category : '', description: description, percentage: '', originalAmount: '', originalCurrency: '', exchangeRate: '' };
   showLoading('Guardando...');
@@ -845,7 +886,7 @@ async function saveTransaction() {
   const currency = document.getElementById('tx-currency')?.value;
   const date = document.getElementById('tx-date')?.value;
   const description = document.getElementById('tx-description')?.value;
-  const category = document.getElementById('tx-category')?.value;
+  const category = getSelectedCategory('tx-category', 'tx-new-category');
   const classification = type === 'Gasto' ? document.getElementById('tx-classification')?.value : '';
   const percentage = classification === 'Mixto' ? document.getElementById('tx-percentage')?.value : '';
 
