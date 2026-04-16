@@ -568,8 +568,7 @@ function renderTransactionForm(currencies) {
     '<select class="form-control" id="tx-category" onchange="onCategoryChange(\'tx-category\', \'tx-new-category-wrap\')">' +    CATEGORIES.map(function(c) { return '<option value="' + c + '">' + c + '</option>'; }).join('') +
     '<option value="__new__">+ Agregar nueva categoria...</option>' +
     '</select>' +
-    '<div style="display:none;margin-top:0.5rem;display:none" id="tx-new-category-wrap">' +
-    '<div style="display:flex;gap:0.5rem">' +
+    '<div style="display:none;margin-top:0.5rem" id="tx-new-category-wrap">' +    '<div style="display:flex;gap:0.5rem">' +
     '<input type="text" class="form-control" id="tx-new-category" placeholder="Escribe la nueva categoria...">' +
     '<button class="btn btn-primary btn-sm" onclick="confirmNewCategory(\'tx-category\', \'tx-new-category\')">✓</button>' +
     '</div></div>' +    '</div></div>' +
