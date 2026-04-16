@@ -716,11 +716,9 @@ function showMultipleResults(results) {
     var isIncome = r.transaction_kind === 'income';
     var hasUncertain = r.uncertain_fields && r.uncertain_fields.length > 0;
     var confidence = Math.round((r.confidence || 0) * 100);
-
     var borderColor = hasUncertain ? 'rgba(251,191,36,0.4)' : 'rgba(74,222,128,0.2)';
     var headerBg = hasUncertain ? 'var(--yellow-dim)' : (isIncome ? 'var(--accent-dim)' : (isConversion ? 'var(--blue-dim)' : 'var(--red-dim)'));
     var kindLabel = isConversion ? '💱 Conversión' : (isIncome ? '💚 Ingreso' : '🔴 Gasto');
-
     var formFields = '';
 
     if (isConversion) {
@@ -729,7 +727,7 @@ function showMultipleResults(results) {
         '<div class="form-group"><label class="form-label" style="font-size:0.7rem">Sale</label>' +
         '<div style="display:flex;gap:0.4rem">' +
         '<input type="number" class="form-control" id="r' + i + '-from-amount" value="' + (r.from_amount || '') + '" step="any" style="flex:2">' +
-        '<select class="form-control" id="r' + i + '-category" onchange="onCategoryChange(\'r' + i + '-category\', \'r' + i + '-new-category-wrap\')">' +
+        '<select class="form-control" id="r' + i + '-from-currency" style="flex:1">' +
         currencies.map(function(c){ return '<option value="'+c.code+'" '+(c.code===r.from_currency?'selected':'')+'>'+c.code+'</option>'; }).join('') +
         '</select></div></div>' +
         '<div class="form-group"><label class="form-label" style="font-size:0.7rem">Entra</label>' +
@@ -737,19 +735,14 @@ function showMultipleResults(results) {
         '<input type="number" class="form-control" id="r' + i + '-to-amount" value="' + (r.to_amount || '') + '" step="any" style="flex:2">' +
         '<select class="form-control" id="r' + i + '-to-currency" style="flex:1">' +
         currencies.map(function(c){ return '<option value="'+c.code+'" '+(c.code===r.to_currency?'selected':'')+'>'+c.code+'</option>'; }).join('') +
-        '</select>' +
-        '<div style="display:none;margin-top:0.5rem" id="r' + i + '-new-category-wrap">' +
-        '<div style="display:flex;gap:0.5rem">' +
-        '<input type="text" class="form-control" id="r' + i + '-new-category" placeholder="Nueva categoria...">' +
-        '<button class="btn btn-primary btn-sm" onclick="confirmNewCategory(\'r' + i + '-category\', \'r' + i + '-new-category\')">✓</button>' +
-        '</div></div>' +
-        '</div>' +
+        '</select></div></div>' +
         '</div>';
     } else {
       formFields =
         '<div class="form-row">' +
         '<div class="form-group"><label class="form-label" style="font-size:0.7rem">Tipo</label>' +
-        '<select class="form-control" id="r' + i + '-category" onchange="onCategoryChange(\'r' + i + '-category\', \'r' + i + '-new-category-wrap\')">' +        '<option value="Gasto" ' + (!isIncome ? 'selected' : '') + '>Gasto</option>' +
+        '<select class="form-control" id="r' + i + '-type">' +
+        '<option value="Gasto" ' + (!isIncome ? 'selected' : '') + '>Gasto</option>' +
         '<option value="Ingreso" ' + (isIncome ? 'selected' : '') + '>Ingreso</option>' +
         '</select></div>' +
         '<div class="form-group"><label class="form-label" style="font-size:0.7rem">Clasificacion</label>' +
@@ -767,16 +760,9 @@ function showMultipleResults(results) {
         '</div>' +
         '<div class="form-row">' +
         '<div class="form-group"><label class="form-label" style="font-size:0.7rem">Categoria</label>' +
-        '<select class="form-control" id="r' + i + '-category">' +
+        '<select class="form-control" id="r' + i + '-category" onchange="onCategoryChange(\'r' + i + '-category\', \'r' + i + '-new-category-wrap\')">' +
         getCategories().map(function(c){ return '<option value="'+c+'" '+(c===r.category?'selected':'')+'>'+c+'</option>'; }).join('') +
         '<option value="__new__">+ Agregar nueva categoria...</option>' +
-        '</select>' +
-        '<div style="display:none;margin-top:0.5rem" id="r' + i + '-new-category-wrap">' +
-        '<div style="display:flex;gap:0.5rem">' +
-        '<input type="text" class="form-control" id="r' + i + '-new-category" placeholder="Nueva categoria...">' +
-        '<button class="btn btn-primary btn-sm" onclick="confirmNewCategory(\'r' + i + '-category\', \'r' + i + '-new-category\')">✓</button>' +
-        '</div></div>' +
-        '</div>' +'<option value="__new__">+ Agregar nueva categoria...</option>' +
         '</select>' +
         '<div style="display:none;margin-top:0.5rem" id="r' + i + '-new-category-wrap">' +
         '<div style="display:flex;gap:0.5rem">' +
