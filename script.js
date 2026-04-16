@@ -729,7 +729,7 @@ function showMultipleResults(results) {
         '<div class="form-group"><label class="form-label" style="font-size:0.7rem">Sale</label>' +
         '<div style="display:flex;gap:0.4rem">' +
         '<input type="number" class="form-control" id="r' + i + '-from-amount" value="' + (r.from_amount || '') + '" step="any" style="flex:2">' +
-        '<select class="form-control" id="r' + i + '-from-currency" style="flex:1">' +
+        '<select class="form-control" id="r' + i + '-category" onchange="onCategoryChange(\'r' + i + '-category\', \'r' + i + '-new-category-wrap\')">' +
         currencies.map(function(c){ return '<option value="'+c.code+'" '+(c.code===r.from_currency?'selected':'')+'>'+c.code+'</option>'; }).join('') +
         '</select></div></div>' +
         '<div class="form-group"><label class="form-label" style="font-size:0.7rem">Entra</label>' +
@@ -737,7 +737,13 @@ function showMultipleResults(results) {
         '<input type="number" class="form-control" id="r' + i + '-to-amount" value="' + (r.to_amount || '') + '" step="any" style="flex:2">' +
         '<select class="form-control" id="r' + i + '-to-currency" style="flex:1">' +
         currencies.map(function(c){ return '<option value="'+c.code+'" '+(c.code===r.to_currency?'selected':'')+'>'+c.code+'</option>'; }).join('') +
-        '</select></div></div>' +
+        '</select>' +
+        '<div style="display:none;margin-top:0.5rem" id="r' + i + '-new-category-wrap">' +
+        '<div style="display:flex;gap:0.5rem">' +
+        '<input type="text" class="form-control" id="r' + i + '-new-category" placeholder="Nueva categoria...">' +
+        '<button class="btn btn-primary btn-sm" onclick="confirmNewCategory(\'r' + i + '-category\', \'r' + i + '-new-category\')">✓</button>' +
+        '</div></div>' +
+        '</div>' +
         '</div>';
     } else {
       formFields =
@@ -764,7 +770,7 @@ function showMultipleResults(results) {
         '<div class="form-group"><label class="form-label" style="font-size:0.7rem">Categoria</label>' +
         '<select class="form-control" id="r' + i + '-category">' +
         getCategories().map(function(c){ return '<option value="'+c+'" '+(c===r.category?'selected':'')+'>'+c+'</option>'; }).join('') +
-        '</select></div>' +
+        '<option value="__new__">+ Agregar nueva categoria...</option>' +        '</select></div>' +
         '<div class="form-group"><label class="form-label" style="font-size:0.7rem">Fecha</label>' +
         '<input type="date" class="form-control" id="r' + i + '-date" value="' + (r.date || new Date().toISOString().split('T')[0]) + '"></div>' +
         '</div>';
