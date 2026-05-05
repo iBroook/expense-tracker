@@ -6,6 +6,7 @@
 const App = {
   currentTab: 'dashboard',
   transactions: [],
+  debts: [],
   spreadsheetId: null,
   user: null,
   charts: {},
@@ -76,10 +77,13 @@ async function initApp() {
 async function startApp() {
   showLoading('Cargando datos...');
   try {
-    // Cargar transacciones
     App.transactions = await GoogleSheets.readTransactions(App.spreadsheetId);
     Storage.setTransactionsCache(App.transactions);
-
+    try {
+      App.debts = await GoogleSheets.readDebts(App.spreadsheetId);
+    } catch (e) {
+      App.debts = [];
+    }
     hideLoading();
     showApp();
     renderTab('dashboard');
@@ -404,14 +408,187 @@ function renderDashboard() {
       </div>
     </div>
 
-    <!-- Gastos por categoría -->
+<!-- Gastos por categoría -->
     <div class="card">
       <div class="card-header">
         <span class="card-title">Gastos por categoría (${monthNames[month-1]} ${year}) — en COP</span>
       </div>
       ${catBars || '<div class="empty-state"><div class="empty-icon">📊</div><p>Sin gastos este mes</p></div>'}
     </div>
+
+    <!-- Deudas Activas -->
+    <div class="card" style="margin-top:1.5rem">
+      <div class="card-header" style="display:flex;justify-content:space-between;align-items:center">
+        <span class="card-title">💳 Deudas Activas</span>
+        <button class="btn btn-primary btn-sm" onclick="showAddDebtModal()">+ Agregar deuda</button>
+      </div>
+      ${renderDebtsSection()}
+    </div>
   `;
+}
+
+function renderDebtsSection() {
+  var activeDebts = (App.debts || []).filter(function(d) { return d.status === 'Activo'; });
+  if (activeDebts.length === 0) {
+    return '<div class="empty-state"><div class="empty-icon">💳</div><p>No tienes deudas registradas</p><p style="font-size:0.78rem;color:var(--text-muted);margin-top:0.4rem">Agrega creditos o tarjetas de credito para llevar el control</p></div>';
+  }
+  return '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:1rem">' +
+    activeDebts.map(function(d) { return renderDebtCard(d); }).join('') +
+    '</div>';
+}
+
+function renderDebtCard(debt) {
+  var perInstallment = debt.totalInstallments > 0 ? debt.originalAmount / debt.totalInstallments : 0;
+  var paidAmount = perInstallment * debt.paidInstallments;
+  var remaining = debt.originalAmount - paidAmount;
+  var pct = debt.totalInstallments > 0 ? (debt.paidInstallments / debt.totalInstallments * 100) : 0;
+  var typeIcon = debt.type === 'Tarjeta' ? '💳' : '🏦';
+
+  return '<div style="border:1px solid var(--border);border-radius:8px;padding:1rem;background:var(--bg-card-alt)">' +
+    '<div style="display:flex;justify-content:space-between;align-items:start;margin-bottom:0.5rem">' +
+    '<div>' +
+    '<div style="font-size:0.7rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px">' + typeIcon + ' ' + debt.type + '</div>' +
+    '<div style="font-weight:600;font-size:1rem;margin-top:0.2rem">' + escapeHtml(debt.name) + '</div>' +
+    '</div>' +
+    '<div style="display:flex;gap:0.3rem">' +
+    '<button class="btn btn-ghost btn-icon btn-sm" onclick="editDebt(\'' + debt.id + '\')" title="Editar">✏️</button>' +
+    '<button class="btn btn-danger btn-icon btn-sm" onclick="deleteDebtConfirm(\'' + debt.id + '\')" title="Eliminar">🗑️</button>' +
+    '</div></div>' +
+    '<div style="margin-top:0.75rem;display:flex;justify-content:space-between;font-size:0.78rem">' +
+    '<span class="text-muted">Saldo pendiente</span>' +
+    '<span class="text-mono" style="font-weight:600">' + Currency.format(remaining, debt.currency) + '</span>' +
+    '</div>' +
+    '<div style="display:flex;justify-content:space-between;font-size:0.78rem;margin-top:0.3rem">' +
+    '<span class="text-muted">Cuotas</span>' +
+    '<span class="text-mono">' + debt.paidInstallments + ' / ' + debt.totalInstallments + '</span>' +
+    '</div>' +
+    '<div style="display:flex;justify-content:space-between;font-size:0.78rem;margin-top:0.3rem">' +
+    '<span class="text-muted">Por cuota</span>' +
+    '<span class="text-mono">' + Currency.format(perInstallment, debt.currency) + '</span>' +
+    '</div>' +
+    '<div style="height:8px;background:var(--border);border-radius:4px;margin-top:0.75rem;overflow:hidden">' +
+    '<div style="height:100%;width:' + pct.toFixed(1) + '%;background:var(--accent);transition:width 0.5s ease"></div>' +
+    '</div>' +
+    '<div style="text-align:right;font-size:0.72rem;color:var(--text-muted);margin-top:0.3rem">' + pct.toFixed(0) + '% pagado</div>' +
+    '</div>';
+}
+
+function showAddDebtModal() {
+  var currencies = Currency.getAll();
+  createModal('Agregar Deuda', 
+    '<div class="form-group"><label class="form-label">Nombre <span class="required">*</span></label>' +
+    '<input type="text" class="form-control" id="debt-name" placeholder="Credito BanColombia, Tarjeta Visa..."></div>' +
+    '<div class="form-row">' +
+    '<div class="form-group"><label class="form-label">Tipo</label>' +
+    '<select class="form-control" id="debt-type"><option value="Credito">🏦 Credito</option><option value="Tarjeta">💳 Tarjeta de credito</option></select></div>' +
+    '<div class="form-group"><label class="form-label">Divisa</label>' +
+    '<select class="form-control" id="debt-currency">' +
+    currencies.map(function(c){ return '<option value="'+c.code+'" '+(c.code==='COP'?'selected':'')+'>'+c.code+'</option>'; }).join('') +
+    '</select></div>' +
+    '</div>' +
+    '<div class="form-row">' +
+    '<div class="form-group"><label class="form-label">Monto original <span class="required">*</span></label>' +
+    '<input type="number" class="form-control" id="debt-amount" placeholder="5000000" step="any" min="0"></div>' +
+    '<div class="form-group"><label class="form-label">Cuotas totales <span class="required">*</span></label>' +
+    '<input type="number" class="form-control" id="debt-installments" placeholder="6" min="1"></div>' +
+    '</div>' +
+    '<div class="form-row">' +
+    '<div class="form-group"><label class="form-label">Cuotas ya pagadas</label>' +
+    '<input type="number" class="form-control" id="debt-paid" value="0" min="0"></div>' +
+    '<div class="form-group"><label class="form-label">Fecha inicio</label>' +
+    '<input type="date" class="form-control" id="debt-date" value="' + new Date().toISOString().split('T')[0] + '"></div>' +
+    '</div>',
+    async function() {
+      var name = document.getElementById('debt-name').value.trim();
+      var type = document.getElementById('debt-type').value;
+      var currency = document.getElementById('debt-currency').value;
+      var amount = parseFloat(document.getElementById('debt-amount').value);
+      var installments = parseInt(document.getElementById('debt-installments').value);
+      var paid = parseInt(document.getElementById('debt-paid').value) || 0;
+      var date = document.getElementById('debt-date').value;
+
+      if (!name || !amount || !installments) {
+        showToast('Completa los campos requeridos', 'error');
+        return false;
+      }
+
+      var debt = {
+        id: generateId(), name: name, type: type, originalAmount: amount,
+        currency: currency, totalInstallments: installments, paidInstallments: paid,
+        startDate: date, status: 'Activo'
+      };
+
+      showLoading('Guardando deuda...');
+      try {
+        await GoogleSheets.addDebt(App.spreadsheetId, debt);
+        App.debts.push(debt);
+        hideLoading();
+        showToast('Deuda agregada', 'success');
+        renderDashboard();
+      } catch(err) {
+        hideLoading();
+        showToast('Error: ' + err.message, 'error');
+      }
+    }
+  );
+}
+
+function deleteDebtConfirm(id) {
+  if (!confirm('¿Eliminar esta deuda? Las transacciones existentes no se borraran.')) return;
+  showLoading('Eliminando...');
+  GoogleSheets.deleteDebt(App.spreadsheetId, id).then(function() {
+    App.debts = App.debts.filter(function(d) { return d.id !== id; });
+    hideLoading();
+    showToast('Deuda eliminada', 'success');
+    renderDashboard();
+  }).catch(function(err) {
+    hideLoading();
+    showToast('Error: ' + err.message, 'error');
+  });
+}
+
+function editDebt(id) {
+  var debt = App.debts.find(function(d) { return d.id === id; });
+  if (!debt) return;
+  var currencies = Currency.getAll();
+
+  createModal('Editar Deuda',
+    '<div class="form-group"><label class="form-label">Nombre</label>' +
+    '<input type="text" class="form-control" id="edit-debt-name" value="' + escapeHtml(debt.name) + '"></div>' +
+    '<div class="form-row">' +
+    '<div class="form-group"><label class="form-label">Monto original</label>' +
+    '<input type="number" class="form-control" id="edit-debt-amount" value="' + debt.originalAmount + '" step="any"></div>' +
+    '<div class="form-group"><label class="form-label">Cuotas totales</label>' +
+    '<input type="number" class="form-control" id="edit-debt-installments" value="' + debt.totalInstallments + '"></div>' +
+    '</div>' +
+    '<div class="form-row">' +
+    '<div class="form-group"><label class="form-label">Cuotas pagadas</label>' +
+    '<input type="number" class="form-control" id="edit-debt-paid" value="' + debt.paidInstallments + '"></div>' +
+    '<div class="form-group"><label class="form-label">Estado</label>' +
+    '<select class="form-control" id="edit-debt-status">' +
+    '<option value="Activo" ' + (debt.status==='Activo'?'selected':'') + '>Activo</option>' +
+    '<option value="Pagado" ' + (debt.status==='Pagado'?'selected':'') + '>Pagado</option>' +
+    '</select></div>' +
+    '</div>',
+    async function() {
+      debt.name = document.getElementById('edit-debt-name').value;
+      debt.originalAmount = parseFloat(document.getElementById('edit-debt-amount').value);
+      debt.totalInstallments = parseInt(document.getElementById('edit-debt-installments').value);
+      debt.paidInstallments = parseInt(document.getElementById('edit-debt-paid').value);
+      debt.status = document.getElementById('edit-debt-status').value;
+
+      showLoading('Actualizando...');
+      try {
+        await GoogleSheets.updateDebt(App.spreadsheetId, debt);
+        hideLoading();
+        showToast('Deuda actualizada', 'success');
+        renderDashboard();
+      } catch(err) {
+        hideLoading();
+        showToast('Error: ' + err.message, 'error');
+      }
+    }
+  );
 }
 
 // ============================================================
