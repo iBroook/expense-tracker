@@ -44,6 +44,10 @@ var ClaudeAPI = {
       ']\n\n' +
       'Para conversiones usar:\n' +
       '{"transaction_kind":"conversion","from_amount":379.01,"from_currency":"USD","to_amount":357.67,"to_currency":"USDT","date":"2026-04-14","description":"Compra USDT Binance P2P","platform":"Binance P2P","confidence":0.97,"uncertain_fields":[],"notes":""}\n\n' +
+      'DETECCION DE PAGOS DE DEUDA: Si el movimiento parece un pago de credito, cuota, tarjeta de credito,\n' +
+      'agrega "is_debt_payment": true al JSON. Pistas: "Pago tarjeta", "Cuota credito", "Abono prestamo",\n' +
+      'pagos a bancos por montos fijos recurrentes, "BANCOLOMBIA TARJETA", "PAGO CUOTA", etc.\n' +
+      'Si no es pago de deuda, omite el campo o ponlo en false.\n\n' +
       'IMPORTANTE:\n' +
       '- Devuelve SIEMPRE un array, aunque sea de un solo elemento\n' +
       '- Mantén el orden en que aparecen en la imagen (de arriba hacia abajo)\n' +
