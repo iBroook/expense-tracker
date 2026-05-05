@@ -749,8 +749,18 @@ function renderTransactionForm(currencies) {
     '<input type="text" class="form-control" id="tx-new-category" placeholder="Escribe la nueva categoria...">' +
     '<button class="btn btn-primary btn-sm" onclick="confirmNewCategory(\'tx-category\', \'tx-new-category\')">✓</button>' +
     '</div></div>' +    '</div></div>' +
-    '<div class="form-group"><label class="form-label">Descripcion</label>' +
-    '<input type="text" class="form-control" id="tx-description" placeholder="Descripcion opcional..."></div>';
+'<div class="form-group"><label class="form-label">Descripcion</label>' +
+    '<input type="text" class="form-control" id="tx-description" placeholder="Descripcion opcional..."></div>' +
+    '<div class="form-group" id="tx-debt-group"><label class="form-label">¿Es pago de una deuda?</label>' +
+    '<select class="form-control" id="tx-debt">' +
+    '<option value="">No, es un gasto normal</option>' +
+    (App.debts || []).filter(function(d) { return d.status === 'Activo'; }).map(function(d) {
+      return '<option value="' + d.id + '">💳 ' + escapeHtml(d.name) + ' (' + d.paidInstallments + '/' + d.totalInstallments + ')</option>';
+    }).join('') +
+    '</select>' +
+    '<div class="form-hint">Si lo marcas, se descontara una cuota de la deuda automaticamente</div>' +
+    '</div>';
+}
 }
 
 function onTypeChange() {
@@ -1140,12 +1150,55 @@ async function saveTransaction() {
   const category = getSelectedCategory('tx-category', 'tx-new-category');
   const classification = type === 'Gasto' ? document.getElementById('tx-classification')?.value : '';
   const percentage = classification === 'Mixto' ? document.getElementById('tx-percentage')?.value : '';
+  const debtId = document.getElementById('tx-debt')?.value || '';
 
-  // Validación
   if (!type || !amount || isNaN(amount) || amount <= 0 || !currency || !date) {
-    showToast('Completa los campos requeridos (Tipo, Monto, Divisa, Fecha)', 'error');
+    showToast('Completa los campos requeridos', 'error');
     return;
   }
+
+  const transaction = {
+    id: generateId(), date, type, classification, amount, currency,
+    category: type === 'Gasto' ? category : '',
+    description, percentage,
+    originalAmount: '', originalCurrency: '', exchangeRate: '',
+    debtId: debtId
+  };
+
+  const currencyObj = Currency.getByCode(currency);
+  if (currencyObj && !currencyObj.isPermanent) {
+    transaction.originalAmount = amount;
+    transaction.originalCurrency = currency;
+    transaction.exchangeRate = currencyObj.rate;
+  }
+
+  showLoading('Guardando...');
+  try {
+    await GoogleSheets.addTransaction(App.spreadsheetId, transaction);
+    App.transactions.push(transaction);
+
+    // Si es pago de deuda, incrementar cuotas pagadas
+    if (debtId) {
+      var debt = App.debts.find(function(d) { return d.id === debtId; });
+      if (debt) {
+        debt.paidInstallments += 1;
+        if (debt.paidInstallments >= debt.totalInstallments) debt.status = 'Pagado';
+        await GoogleSheets.updateDebt(App.spreadsheetId, debt);
+      }
+    }
+
+    Storage.setTransactionsCache(App.transactions);
+    hideLoading();
+    showToast('Transacción guardada ✓', 'success');
+    renderRegister();
+  } catch (err) {
+    App.transactions.push(transaction);
+    Storage.setTransactionsCache(App.transactions);
+    hideLoading();
+    showToast('Guardado localmente', 'info');
+    renderRegister();
+  }
+}
 
   const transaction = {
     id: generateId(),
