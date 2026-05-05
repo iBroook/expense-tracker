@@ -958,7 +958,15 @@ function showMultipleResults(results) {
         '</div>' +
         '<div class="form-group"><label class="form-label" style="font-size:0.7rem">Fecha</label>' +
         '<input type="date" class="form-control" id="r' + i + '-date" value="' + (r.date || new Date().toISOString().split('T')[0]) + '"></div>' +
-        '</div>';
+        '</div>' +
+        '<div class="form-group"><label class="form-label" style="font-size:0.7rem">' +
+        (r.is_debt_payment ? '💳 Posible pago de deuda detectado' : '¿Es pago de deuda?') + '</label>' +
+        '<select class="form-control" id="r' + i + '-debt">' +
+        '<option value="">No, gasto normal</option>' +
+        (App.debts || []).filter(function(d) { return d.status === 'Activo'; }).map(function(d) {
+          return '<option value="' + d.id + '"' + (r.is_debt_payment ? ' selected' : '') + '>💳 ' + escapeHtml(d.name) + '</option>';
+        }).join('') +
+        '</select></div>';
     }
 
     return '<div style="border:1px solid ' + borderColor + ';border-radius:8px;margin-bottom:0.75rem;overflow:hidden">' +
@@ -1035,11 +1043,15 @@ async function saveAllFromPhoto(count) {
       var classification = type === 'Ingreso' ? '' : ((document.getElementById('r' + i + '-classification') || {}).value || 'Empresa');
       var category = (document.getElementById('r' + i + '-category') || {}).value || 'Otro';
 
+      var debtIdEl = document.getElementById('r' + i + '-debt');
+      var debtId = debtIdEl ? debtIdEl.value : '';
+      
       toSave.push({
-        id: generateId(), date: date, type: type, classification: classification,
-        amount: amount, currency: currency, category: type === 'Gasto' ? category : '',
-        description: concept, percentage: '', originalAmount: '', originalCurrency: '', exchangeRate: ''
-      });
+           id: generateId(), date: date, type: type, classification: classification,
+           amount: amount, currency: currency, category: type === 'Gasto' ? category : '',
+           description: concept, percentage: '', originalAmount: '', originalCurrency: '', exchangeRate: '',
+           debtId: debtId
+       });
     }
   }
 
@@ -1048,13 +1060,30 @@ async function saveAllFromPhoto(count) {
     return;
   }
 
-  showLoading('Guardando ' + toSave.length + ' transaccion(es)...');
+showLoading('Guardando ' + toSave.length + ' transaccion(es)...');
   try {
     // Guardar en orden secuencial para mantener orden en Sheets
+    var debtsUpdated = {};
     for (var j = 0; j < toSave.length; j++) {
       await GoogleSheets.addTransaction(App.spreadsheetId, toSave[j]);
       App.transactions.push(toSave[j]);
+
+      // Si es pago de deuda, marcarla para actualizar
+      if (toSave[j].debtId) {
+        debtsUpdated[toSave[j].debtId] = (debtsUpdated[toSave[j].debtId] || 0) + 1;
+      }
     }
+
+    // Actualizar deudas
+    for (var debtId in debtsUpdated) {
+      var debt = App.debts.find(function(d) { return d.id === debtId; });
+      if (debt) {
+        debt.paidInstallments += debtsUpdated[debtId];
+        if (debt.paidInstallments >= debt.totalInstallments) debt.status = 'Pagado';
+        await GoogleSheets.updateDebt(App.spreadsheetId, debt);
+      }
+    }
+
     Storage.setTransactionsCache(App.transactions);
     hideLoading();
     showToast('✓ ' + toSave.length + ' transacciones guardadas', 'success');
