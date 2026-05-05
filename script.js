@@ -1228,49 +1228,6 @@ async function saveTransaction() {
   }
 }
 
-  const transaction = {
-    id: generateId(),
-    date,
-    type,
-    classification,
-    amount,
-    currency,
-    category: type === 'Gasto' ? category : '',
-    description,
-    percentage,
-    originalAmount: '',
-    originalCurrency: '',
-    exchangeRate: ''
-  };
-
-  // Si la divisa no es permanente, guardar tasa de cambio
-  const currencyObj = Currency.getByCode(currency);
-  if (currencyObj && !currencyObj.isPermanent) {
-    transaction.originalAmount = amount;
-    transaction.originalCurrency = currency;
-    transaction.exchangeRate = currencyObj.rate;
-  }
-
-  showLoading('Guardando...');
-  try {
-    await GoogleSheets.addTransaction(App.spreadsheetId, transaction);
-    App.transactions.push(transaction);
-    Storage.setTransactionsCache(App.transactions);
-    hideLoading();
-    showToast('Transacción guardada ✓', 'success');
-
-    // Limpiar formulario
-    renderRegister();
-  } catch (err) {
-    // Guardar en cache offline
-    App.transactions.push(transaction);
-    Storage.setTransactionsCache(App.transactions);
-    hideLoading();
-    showToast('Guardado localmente (sin conexión)', 'info');
-    renderRegister();
-  }
-}
-
 // ============================================================
 // HISTORIAL
 // ============================================================
