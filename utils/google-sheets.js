@@ -120,11 +120,11 @@ var GoogleSheets = {
   },
 
   addHeaders: function(spreadsheetId) {
-    return this.updateRange(spreadsheetId, 'Transacciones!A1:L1', [CONFIG.SHEET_HEADER]);
+    return this.updateRange(spreadsheetId, 'Transacciones!A1:M1', [CONFIG.SHEET_HEADER]);
   },
 
   hasHeaders: function(spreadsheetId) {
-    return this.readRange(spreadsheetId, 'Transacciones!A1:L1').then(function(data) {
+    return this.readRange(spreadsheetId, 'Transacciones!A1:M1').then(function(data) {
       var rows = data.values || [];
       return rows.length > 0 && rows[0][0] === 'Fecha';
     }).catch(function() { return false; });
@@ -132,7 +132,7 @@ var GoogleSheets = {
 
   readTransactions: function(spreadsheetId) {
     var self = this;
-    return this.readRange(spreadsheetId, 'Transacciones!A2:L').then(function(data) {
+    return this.readRange(spreadsheetId, 'Transacciones!A2:M').then(function(data) {
       var rows = data.values || [];
       return rows.map(function(row) {
         return self._rowToTransaction(row);
@@ -142,14 +142,14 @@ var GoogleSheets = {
 
   addTransaction: function(spreadsheetId, transaction) {
     var row = this._transactionToRow(transaction);
-    return this.appendRow(spreadsheetId, 'Transacciones!A:L', [row]).then(function() {
+    return this.appendRow(spreadsheetId, 'Transacciones!A:M', [row]).then(function() {
       return transaction;
     });
   },
 
   updateTransaction: function(spreadsheetId, transaction) {
     var self = this;
-    return this.readRange(spreadsheetId, 'Transacciones!A2:L').then(function(allData) {
+    return this.readRange(spreadsheetId, 'Transacciones!A2:M').then(function(allData) {
       var rows = allData.values || [];
       var rowIndex = -1;
       for (var i = 0; i < rows.length; i++) {
@@ -164,7 +164,7 @@ var GoogleSheets = {
 
   deleteTransaction: function(spreadsheetId, transactionId) {
     var token = this.getToken();
-    return this.readRange(spreadsheetId, 'Transacciones!A2:L').then(function(allData) {
+    return this.readRange(spreadsheetId, 'Transacciones!A2:M').then(function(allData) {
       var rows = allData.values || [];
       var rowIndex = -1;
       for (var i = 0; i < rows.length; i++) {
@@ -221,19 +221,120 @@ var GoogleSheets = {
     });
   },
 
-  _transactionToRow: function(tx) {
+_transactionToRow: function(tx) {
     return [tx.date, tx.type, tx.classification || '', tx.amount, tx.currency,
       tx.category || '', tx.description || '', tx.percentage || '',
-      tx.originalAmount || '', tx.originalCurrency || '', tx.exchangeRate || '', tx.id];
+      tx.originalAmount || '', tx.originalCurrency || '', tx.exchangeRate || '', tx.id,
+      tx.debtId || ''];
   },
 
-  _rowToTransaction: function(row) {
+_rowToTransaction: function(row) {
     return {
       date: row[0] || '', type: row[1] || '', classification: row[2] || '',
       amount: parseFloat(row[3]) || 0, currency: row[4] || '', category: row[5] || '',
       description: row[6] || '', percentage: row[7] || '', originalAmount: row[8] || '',
-      originalCurrency: row[9] || '', exchangeRate: row[10] || '', id: row[11] || ''
+      originalCurrency: row[9] || '', exchangeRate: row[10] || '', id: row[11] || '',
+      debtId: row[12] || ''
     };
+  },
+
+  ensureDebtsSheet: function(spreadsheetId) {
+    var self = this;
+    var token = this.getToken();
+    return fetch(CONFIG.GOOGLE_SHEETS_API + '/' + spreadsheetId + '?fields=sheets.properties', {
+      headers: { 'Authorization': 'Bearer ' + token }
+    }).then(function(r) { return r.json(); }).then(function(data) {
+      var hasDebts = false;
+      if (data.sheets) {
+        for (var i = 0; i < data.sheets.length; i++) {
+          if (data.sheets[i].properties.title === 'Deudas') { hasDebts = true; break; }
+        }
+      }
+      if (hasDebts) return Promise.resolve();
+      return fetch(CONFIG.GOOGLE_SHEETS_API + '/' + spreadsheetId + ':batchUpdate', {
+        method: 'POST',
+        headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ requests: [{ addSheet: { properties: { title: 'Deudas' } } }] })
+      }).then(function() {
+        return self.updateRange(spreadsheetId, 'Deudas!A1:I1',
+          [['ID', 'Nombre', 'Tipo', 'Monto Original', 'Divisa', 'Cuotas Total', 'Cuotas Pagadas', 'Fecha Inicio', 'Estado']]);
+      });
+    });
+  },
+
+  readDebts: function(spreadsheetId) {
+    var self = this;
+    return self.ensureDebtsSheet(spreadsheetId).then(function() {
+      return self.readRange(spreadsheetId, 'Deudas!A2:I1000');
+    }).then(function(data) {
+      var rows = data.values || [];
+      return rows.map(function(row) {
+        return {
+          id: row[0] || '',
+          name: row[1] || '',
+          type: row[2] || 'Credito',
+          originalAmount: parseFloat(row[3]) || 0,
+          currency: row[4] || 'COP',
+          totalInstallments: parseInt(row[5]) || 0,
+          paidInstallments: parseInt(row[6]) || 0,
+          startDate: row[7] || '',
+          status: row[8] || 'Activo'
+        };
+      }).filter(function(d) { return d.id; });
+    });
+  },
+
+  addDebt: function(spreadsheetId, debt) {
+    var self = this;
+    return self.ensureDebtsSheet(spreadsheetId).then(function() {
+      return self.appendRow(spreadsheetId, 'Deudas!A:I', [[
+        debt.id, debt.name, debt.type, debt.originalAmount, debt.currency,
+        debt.totalInstallments, debt.paidInstallments || 0, debt.startDate, debt.status || 'Activo'
+      ]]);
+    });
+  },
+
+  updateDebt: function(spreadsheetId, debt) {
+    var self = this;
+    return self.readDebts(spreadsheetId).then(function(debts) {
+      var rowIndex = -1;
+      for (var i = 0; i < debts.length; i++) {
+        if (debts[i].id === debt.id) { rowIndex = i + 2; break; }
+      }
+      if (rowIndex === -1) throw new Error('Deuda no encontrada');
+      return self.updateRange(spreadsheetId, 'Deudas!A' + rowIndex + ':I' + rowIndex, [[
+        debt.id, debt.name, debt.type, debt.originalAmount, debt.currency,
+        debt.totalInstallments, debt.paidInstallments, debt.startDate, debt.status
+      ]]);
+    });
+  },
+
+  deleteDebt: function(spreadsheetId, debtId) {
+    var self = this;
+    var token = this.getToken();
+    return self.readDebts(spreadsheetId).then(function(debts) {
+      var rowIndex = -1;
+      for (var i = 0; i < debts.length; i++) {
+        if (debts[i].id === debtId) { rowIndex = i + 1; break; }
+      }
+      if (rowIndex === -1) return;
+      return fetch(CONFIG.GOOGLE_SHEETS_API + '/' + spreadsheetId + '?fields=sheets.properties', {
+        headers: { 'Authorization': 'Bearer ' + token }
+      }).then(function(r) { return r.json(); }).then(function(meta) {
+        var sheetId = null;
+        for (var j = 0; j < meta.sheets.length; j++) {
+          if (meta.sheets[j].properties.title === 'Deudas') { sheetId = meta.sheets[j].properties.sheetId; break; }
+        }
+        if (sheetId === null) return;
+        return fetch(CONFIG.GOOGLE_SHEETS_API + '/' + spreadsheetId + ':batchUpdate', {
+          method: 'POST',
+          headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            requests: [{ deleteDimension: { range: { sheetId: sheetId, dimension: 'ROWS', startIndex: rowIndex, endIndex: rowIndex + 1 } } }]
+          })
+        });
+      });
+    });
   }
 };
 
