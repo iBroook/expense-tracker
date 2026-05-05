@@ -761,7 +761,6 @@ function renderTransactionForm(currencies) {
     '<div class="form-hint">Si lo marcas, se descontara una cuota de la deuda automaticamente</div>' +
     '</div>';
 }
-}
 
 function onTypeChange() {
   var type = document.querySelector('input[name="tx-type"]:checked');
