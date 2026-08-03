@@ -35,13 +35,15 @@ const CONFIG = {
   // Claude API — el front nunca habla directo con api.anthropic.com (CORS lo
   // bloquea y ademas obligaria a exponer la key). Siempre via proxy.
   //
-  // Al desplegar en Cloudflare Pages, cambiar por '/api/claude': eso apunta a
-  // functions/api/claude.js, que corre en el mismo origen. Con eso desaparecen
-  // el CORS y, sobre todo, el proxy abierto: Cloudflare Access protege el
-  // dominio entero y el navegador manda su cookie sola por ser mismo-origen.
-  // Se mantiene el Worker hasta completar la migracion porque GitHub Pages no
-  // ejecuta funciones y el analisis por foto dejaria de funcionar.
-  CLAUDE_API_URL: 'https://fintrack-proxy.gabrielhm1005.workers.dev',
+  // Ruta relativa a proposito: apunta a functions/api/claude.js, que corre en
+  // el MISMO origen que la app. Eso elimina el CORS (no hay preflight ni
+  // cabeceras que mantener al cambiar de dominio) y, sobre todo, el proxy
+  // abierto: Cloudflare Access protege el dominio entero, esta ruta incluida,
+  // y el navegador manda su cookie de sesion sola por ser mismo-origen.
+  //
+  // Sustituye al Worker fintrack-proxy, que era publico y sin autenticacion:
+  // cualquiera con su URL podia gastar creditos de la cuenta.
+  CLAUDE_API_URL: '/api/claude',
   CLAUDE_MODEL: 'claude-opus-4-6',
 
   // App

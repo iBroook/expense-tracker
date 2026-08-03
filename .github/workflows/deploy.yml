@@ -1,8 +1,11 @@
 name: Deploy FinTrack to GitHub Pages
 
+# Solo manual. El despliegue real vive en Cloudflare Pages, que construye
+# desde este mismo repositorio en cada push. Mantener los dos activos
+# publicaba dos copias del sitio con configuracion distinta, y la de GitHub
+# Pages ademas no puede ejecutar functions/api/claude.js, asi que el analisis
+# por foto no funciona ahi. Se conserva el workflow como salida de emergencia.
 on:
-  push:
-    branches: [ main ]
   workflow_dispatch:
 
 permissions:
