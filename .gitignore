@@ -1,0 +1,25 @@
+# Generado por GitHub Actions en cada deploy a partir de los secrets.
+# Nunca commitear: lo que entra aqui se publica como archivo estatico.
+env.js
+
+# Credenciales
+*.pem
+.env
+.env.*
+credentials.json
+
+# Cloudflare
+.wrangler/
+.dev.vars
+
+# Dependencias y build
+node_modules/
+dist/
+
+# Sistema operativo y editores
+.DS_Store
+Thumbs.db
+desktop.ini
+.vscode/
+.idea/
+*.swp

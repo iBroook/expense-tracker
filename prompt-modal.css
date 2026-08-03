@@ -1,0 +1,350 @@
+/* ============================================================
+   PROMPT MODAL - Estilos
+   Modal generico para pedir un dato al usuario (reemplaza el
+   input() de la terminal del servidor Python).
+
+   Sigue el lenguaje visual de FinTrack (styles.css): consume sus
+   variables CSS cuando existen y cae en valores propios cuando el
+   modulo se usa suelto. No modifica ni depende de styles.css.
+
+   Todas las clases van prefijadas con .pm- para no chocar con las
+   clases .modal / .btn / .form-control existentes.
+   ============================================================ */
+
+/* ---- Tokens (con fallback al tema oscuro de FinTrack) ---- */
+.pm-overlay {
+  --pm-bg-card: var(--bg-card, #1a1d27);
+  --pm-bg-input: var(--bg-input, #0f1118);
+  --pm-bg-hover: var(--bg-hover, #1f2334);
+  --pm-border: var(--border, #252836);
+  --pm-border-light: var(--border-light, #2e3347);
+  --pm-text: var(--text-primary, #e8eaf0);
+  --pm-text-2: var(--text-secondary, #8b8fa8);
+  --pm-text-muted: var(--text-muted, #565a72);
+  --pm-accent: var(--accent, #4ade80);
+  --pm-accent-dim: var(--accent-dim, rgba(74, 222, 128, 0.12));
+  --pm-accent-glow: var(--accent-glow, 0 0 20px rgba(74, 222, 128, 0.15));
+  --pm-red: var(--red, #f87171);
+  --pm-red-dim: var(--red-dim, rgba(248, 113, 113, 0.12));
+  --pm-radius: var(--radius, 10px);
+  --pm-radius-sm: var(--radius-sm, 6px);
+  --pm-radius-lg: var(--radius-lg, 16px);
+  --pm-font-sans: var(--font-sans, 'DM Sans', system-ui, sans-serif);
+  --pm-font-mono: var(--font-mono, 'Space Mono', ui-monospace, monospace);
+  --pm-transition: var(--transition, 0.18s ease);
+  --pm-shadow-lg: var(--shadow-lg, 0 8px 40px rgba(0, 0, 0, 0.5));
+  --pm-btn-fg: #0d0f14;
+}
+
+/* Fallbacks para tema claro cuando styles.css no esta cargado.
+   Si styles.css si esta, sus variables ganan y esto no hace nada. */
+[data-theme="light"] .pm-overlay {
+  --pm-bg-card: var(--bg-card, #ffffff);
+  --pm-bg-input: var(--bg-input, #f0f2f7);
+  --pm-bg-hover: var(--bg-hover, #f5f7fc);
+  --pm-border: var(--border, #d8dce8);
+  --pm-border-light: var(--border-light, #e8ebf4);
+  --pm-text: var(--text-primary, #1a1d2e);
+  --pm-text-2: var(--text-secondary, #5a5f7d);
+  --pm-text-muted: var(--text-muted, #9ba0bc);
+  --pm-accent: var(--accent, #16a34a);
+  --pm-accent-dim: var(--accent-dim, rgba(22, 163, 74, 0.1));
+  --pm-accent-glow: var(--accent-glow, 0 0 20px rgba(22, 163, 74, 0.1));
+  --pm-red: var(--red, #dc2626);
+  --pm-red-dim: var(--red-dim, rgba(220, 38, 38, 0.1));
+  --pm-shadow-lg: var(--shadow-lg, 0 8px 40px rgba(0, 0, 0, 0.18));
+  --pm-btn-fg: #ffffff;
+}
+
+/* ---- Overlay ---- */
+.pm-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  background: rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(3px);
+  -webkit-backdrop-filter: blur(3px);
+  animation: pmFadeIn 0.15s ease;
+  font-family: var(--pm-font-sans);
+  color: var(--pm-text);
+  line-height: 1.6;
+}
+
+/* ---- Caja ---- */
+.pm-modal {
+  width: 100%;
+  max-width: 440px;
+  max-height: 90vh;
+  overflow-y: auto;
+  padding: 1.75rem;
+  background: var(--pm-bg-card);
+  border: 1px solid var(--pm-border);
+  border-radius: var(--pm-radius-lg);
+  box-shadow: var(--pm-shadow-lg);
+  animation: pmFadeInUp 0.2s ease;
+}
+
+.pm-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1.25rem;
+}
+
+.pm-title {
+  font-family: var(--pm-font-mono);
+  font-size: 1rem;
+  font-weight: 700;
+  margin: 0;
+  color: var(--pm-text);
+}
+
+.pm-close {
+  flex-shrink: 0;
+  background: none;
+  border: none;
+  color: var(--pm-text-muted);
+  cursor: pointer;
+  font-size: 1.25rem;
+  line-height: 1;
+  padding: 0.25rem;
+  border-radius: var(--pm-radius-sm);
+  transition: var(--pm-transition);
+}
+
+.pm-close:hover { color: var(--pm-text); }
+.pm-close:focus-visible {
+  outline: 2px solid var(--pm-accent);
+  outline-offset: 2px;
+}
+
+/* ---- Contexto (cliente / entregable) ---- */
+.pm-contexto {
+  display: grid;
+  gap: 0.5rem;
+  padding: 0.85rem 1rem;
+  margin-bottom: 1.25rem;
+  background: var(--pm-bg-input);
+  border: 1px solid var(--pm-border);
+  border-radius: var(--pm-radius);
+}
+
+.pm-contexto-fila {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+  font-size: 0.85rem;
+}
+
+.pm-contexto-etiqueta {
+  color: var(--pm-text-muted);
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  flex-shrink: 0;
+}
+
+.pm-contexto-valor {
+  font-family: var(--pm-font-mono);
+  color: var(--pm-text);
+  text-align: right;
+  word-break: break-word;
+}
+
+/* ---- Campo ---- */
+.pm-campo { margin-bottom: 1rem; }
+
+.pm-label {
+  display: block;
+  margin-bottom: 0.4rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--pm-text-2);
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.pm-input-wrap {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: var(--pm-bg-input);
+  border: 1px solid var(--pm-border);
+  border-radius: var(--pm-radius-sm);
+  padding: 0 0.9rem;
+  transition: var(--pm-transition);
+}
+
+.pm-input-wrap:focus-within {
+  border-color: var(--pm-accent);
+  box-shadow: 0 0 0 3px var(--pm-accent-dim);
+}
+
+.pm-input-wrap.pm-invalido {
+  border-color: var(--pm-red);
+  box-shadow: 0 0 0 3px var(--pm-red-dim);
+}
+
+.pm-prefijo {
+  color: var(--pm-text-muted);
+  font-family: var(--pm-font-mono);
+  font-size: 0.95rem;
+  user-select: none;
+}
+
+.pm-input {
+  flex: 1;
+  min-width: 0;
+  width: 100%;
+  padding: 0.65rem 0;
+  background: transparent;
+  border: none;
+  outline: none;
+  color: var(--pm-text);
+  font-family: var(--pm-font-mono);
+  font-size: 0.95rem;
+}
+
+.pm-input::placeholder { color: var(--pm-text-muted); font-family: var(--pm-font-sans); }
+
+.pm-sufijo {
+  color: var(--pm-text-muted);
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  user-select: none;
+}
+
+.pm-hint {
+  margin-top: 0.35rem;
+  font-size: 0.75rem;
+  color: var(--pm-text-muted);
+}
+
+.pm-error {
+  display: none;
+  margin-top: 0.5rem;
+  padding: 0.5rem 0.7rem;
+  font-size: 0.78rem;
+  color: var(--pm-red);
+  background: var(--pm-red-dim);
+  border: 1px solid var(--pm-red-dim);
+  border-radius: var(--pm-radius-sm);
+}
+
+.pm-error.pm-visible { display: block; }
+
+/* ---- Checkbox ---- */
+.pm-check {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.6rem;
+  margin-top: 1rem;
+  padding: 0.7rem 0.85rem;
+  background: var(--pm-bg-input);
+  border: 1px solid var(--pm-border);
+  border-radius: var(--pm-radius-sm);
+  cursor: pointer;
+  font-size: 0.85rem;
+  color: var(--pm-text-2);
+  transition: var(--pm-transition);
+}
+
+.pm-check:hover { background: var(--pm-bg-hover); border-color: var(--pm-border-light); }
+
+.pm-check input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  margin: 0.2rem 0 0 0;
+  flex-shrink: 0;
+  accent-color: var(--pm-accent);
+  cursor: pointer;
+}
+
+.pm-check input[type="checkbox"]:focus-visible {
+  outline: 2px solid var(--pm-accent);
+  outline-offset: 2px;
+}
+
+/* ---- Acciones ---- */
+.pm-acciones {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  margin-top: 1.5rem;
+}
+
+.pm-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.6rem 1.2rem;
+  border-radius: var(--pm-radius-sm);
+  border: 1px solid transparent;
+  font-family: var(--pm-font-sans);
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: var(--pm-transition);
+}
+
+.pm-btn:focus-visible {
+  outline: 2px solid var(--pm-accent);
+  outline-offset: 2px;
+}
+
+.pm-btn-primario {
+  background: var(--pm-accent);
+  border-color: var(--pm-accent);
+  color: var(--pm-btn-fg);
+}
+
+.pm-btn-primario:hover {
+  box-shadow: var(--pm-accent-glow);
+  transform: translateY(-1px);
+}
+
+.pm-btn-secundario {
+  background: var(--pm-bg-card);
+  border-color: var(--pm-border-light);
+  color: var(--pm-text);
+}
+
+.pm-btn-secundario:hover {
+  background: var(--pm-bg-hover);
+  border-color: var(--pm-text-muted);
+}
+
+/* ---- Animaciones ---- */
+@keyframes pmFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes pmFadeInUp {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pm-overlay, .pm-modal { animation: none; }
+  .pm-btn-primario:hover { transform: none; }
+}
+
+/* ---- Movil ---- */
+@media (max-width: 520px) {
+  .pm-overlay { padding: 0.75rem; align-items: flex-end; }
+  .pm-modal { padding: 1.25rem; border-radius: var(--pm-radius); }
+  .pm-acciones { flex-direction: column-reverse; }
+  .pm-acciones .pm-btn { width: 100%; justify-content: center; }
+  .pm-contexto-fila { flex-direction: column; gap: 0.15rem; }
+  .pm-contexto-valor { text-align: left; }
+}

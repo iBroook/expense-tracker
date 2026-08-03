@@ -1,9 +1,8 @@
 var ClaudeAPI = {
 
   analyzeImage: function(imageBase64, mimeType) {
-    var apiKey = CONFIG.CLAUDE_API_KEY;
-    if (!apiKey) {
-      return Promise.reject(new Error('Claude API key no configurada.'));
+    if (!CONFIG.CLAUDE_API_URL) {
+      return Promise.reject(new Error('URL del proxy de Claude no configurada.'));
     }
 
     var today = new Date().toISOString().split('T')[0];
@@ -56,11 +55,13 @@ var ClaudeAPI = {
       '- Para ingresos/abonos, los montos positivos son ingresos\n' +
       '- Hoy es: ' + today;
 
+    // Sin 'x-api-key': la key la agrega el Worker server-side. Mandarla desde
+    // el navegador obligaba a publicarla en env.js, donde era legible por
+    // cualquiera que abriera el codigo fuente del sitio.
     return fetch(CONFIG.CLAUDE_API_URL, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'x-api-key': apiKey,
         'anthropic-version': '2023-06-01'
       },
       body: JSON.stringify({
@@ -107,7 +108,7 @@ var ClaudeAPI = {
   },
 
   getMimeType: function(file) { return file.type || 'image/jpeg'; },
-  isConfigured: function() { return !!(CONFIG.CLAUDE_API_KEY); }
+  isConfigured: function() { return !!(CONFIG.CLAUDE_API_URL); }
 };
 
 window.ClaudeAPI = ClaudeAPI;

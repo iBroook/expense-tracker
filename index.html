@@ -6,6 +6,7 @@
   <meta name="description" content="FinTrack — Control de gastos en múltiples divisas con IA">
   <title>FinTrack — Control de Gastos</title>
   <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="agencia.css">
 </head>
 <body>
 
@@ -48,6 +49,14 @@
         <div class="nav-item" data-tab="currencies" onclick="switchTab('currencies')"><span class="nav-icon">💱</span> Divisas</div>
         <div class="nav-item" data-tab="reports" onclick="switchTab('reports')"><span class="nav-icon">📈</span> Reportes</div>
         <div class="nav-item" data-tab="settings" onclick="switchTab('settings')"><span class="nav-icon">⚙️</span> Configuración</div>
+
+        <div class="ag-nav-label">Agencia</div>
+        <div class="nav-item" data-tab="material" onclick="switchTab('material')"><span class="nav-icon">🎞️</span> Material Disponible</div>
+        <div class="nav-item" data-tab="kanban" onclick="switchTab('kanban')"><span class="nav-icon">🗂️</span> Kanban Diario</div>
+        <div class="nav-item" data-tab="resumen" onclick="switchTab('resumen')"><span class="nav-icon">🗓️</span> Resumen Semanal</div>
+        <div class="nav-item" data-tab="rendimiento" onclick="switchTab('rendimiento')"><span class="nav-icon">⏱️</span> Rendimiento</div>
+        <div class="nav-item" data-tab="cxc" onclick="switchTab('cxc')"><span class="nav-icon">💰</span> Cuentas por Cobrar</div>
+        <div class="nav-item" data-tab="pizarra" onclick="switchTab('pizarra')"><span class="nav-icon">🖍️</span> Pizarra</div>
       </nav>
       <div class="sidebar-footer">
         <div id="user-info-container"></div>
@@ -56,16 +65,355 @@
     </aside>
     <main class="main-content">
       <div id="tab-content"></div>
+
+      <!-- ==========================================================
+           AGENCIA
+           Las secciones viven permanentes en el DOM (no se
+           re-renderizan al cambiar de pestaña) porque el JS de
+           Agencia enlaza sus manejadores una sola vez al arrancar:
+           si se reconstruyera el HTML se perderían todos.
+           agencia-nav.js solo alterna la visibilidad.
+           ========================================================== -->
+      <div id="agencia-root">
+        <header class="ag-topbar">
+          <div class="ag-brand">
+            <h1 id="agencia-nombre">Agencia</h1>
+            <span class="ag-brand-tag">Panel de producción</span>
+          </div>
+          <span id="conn-status" class="conn-status">conectando...</span>
+        </header>
+
+        <!-- PESTAÑA 1: MATERIAL DISPONIBLE -->
+        <section id="tab-material" class="tab-panel active">
+          <div class="panel-actions">
+            <button id="btn-cargar-mensaje" class="btn-primary">Cargar desde mensaje</button>
+            <select id="filtro-cliente-material"><option value="">Todos los clientes</option></select>
+            <button id="btn-refresh-material" class="btn-ghost">Actualizar</button>
+          </div>
+          <div id="material-list" class="material-list"></div>
+        </section>
+
+        <!-- PESTAÑA 2: KANBAN DIARIO -->
+        <section id="tab-kanban" class="tab-panel">
+          <div class="panel-actions">
+            <select id="filtro-cliente"><option value="">Todos los clientes</option></select>
+            <select id="filtro-asignado">
+              <option value="">Todos los asignados</option>
+              <option value="iBrk">iBrk</option>
+              <option value="CM">CM</option>
+              <option value="Ads">Ads</option>
+            </select>
+            <select id="filtro-tipo">
+              <option value="">Todos los tipos</option>
+              <option value="facturable">Facturable</option>
+              <option value="no facturable">No facturable</option>
+            </select>
+            <button id="btn-nueva-tarea" class="btn-primary">+ Nueva tarea</button>
+            <button id="btn-refresh-kanban" class="btn-ghost">Actualizar</button>
+          </div>
+          <div class="kanban-board" id="kanban-board">
+            <div class="kanban-col" data-estado="Por hacer"><h3>Por hacer</h3><div class="kanban-cards" data-estado="Por hacer"></div></div>
+            <div class="kanban-col" data-estado="En progreso"><h3>En progreso</h3><div class="kanban-cards" data-estado="En progreso"></div></div>
+            <div class="kanban-col" data-estado="En revision"><h3>En revisión</h3><div class="kanban-cards" data-estado="En revision"></div></div>
+            <div class="kanban-col" data-estado="Listo para entregar"><h3>Listo para entregar</h3><div class="kanban-cards" data-estado="Listo para entregar"></div></div>
+            <div class="kanban-col" data-estado="Completado"><h3>Completado</h3><div class="kanban-cards" data-estado="Completado"></div></div>
+          </div>
+        </section>
+
+        <!-- PESTAÑA 3: RESUMEN SEMANAL EMPLEADOS -->
+        <section id="tab-resumen" class="tab-panel">
+          <div class="panel-actions">
+            <label for="selector-semana">Semana:</label>
+            <input type="week" id="selector-semana">
+            <button id="btn-entrega-directa" class="btn-primary">+ Entregable directo (CM/Ads)</button>
+            <button id="btn-export-resumen" class="btn-ghost">Exportar semana (texto)</button>
+          </div>
+          <h2>iBrk</h2>
+          <table class="data-table" id="tabla-ibrk">
+            <thead><tr><th>Cliente</th><th>Tipo de tarea</th><th>Descripción</th><th>Fecha</th></tr></thead>
+            <tbody></tbody>
+          </table>
+          <h2>Community Manager</h2>
+          <table class="data-table" id="tabla-cm">
+            <thead><tr><th>Cliente</th><th>Tipo de pieza</th><th>Cantidad</th><th>Fechas</th></tr></thead>
+            <tbody></tbody>
+          </table>
+          <h2>Ads Manager</h2>
+          <table class="data-table" id="tabla-ads">
+            <thead><tr><th>Cliente</th><th>Tipo de tarea</th><th>Descripción</th><th>Fechas</th></tr></thead>
+            <tbody></tbody>
+          </table>
+          <div id="totales-semana" class="totales-semana"></div>
+        </section>
+
+        <!-- PESTAÑA: RENDIMIENTO (historico de tiempos por etapa) -->
+        <section id="tab-rendimiento" class="tab-panel">
+          <div class="panel-actions">
+            <select id="filtro-rend-cliente"><option value="">Todos los clientes</option></select>
+            <select id="filtro-rend-entregable">
+              <option value="">Todos los entregables</option>
+              <option value="reel">reel</option>
+              <option value="video">video</option>
+              <option value="carousel">carousel</option>
+              <option value="post">post</option>
+              <option value="reel_extracto">reel_extracto</option>
+            </select>
+            <select id="filtro-rend-etapa"><option value="">Todas las etapas</option></select>
+          </div>
+          <h2>En curso ahora mismo</h2>
+          <div id="rendimiento-en-curso" class="material-list"></div>
+          <h2>Histórico por cliente / entregable / etapa</h2>
+          <table class="data-table" id="tabla-rendimiento">
+            <thead><tr><th>Cliente</th><th>Entregable</th><th>Etapa</th><th>Muestras</th><th>Promedio</th><th>Última duración</th><th>Tendencia</th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </section>
+
+        <!-- CUENTAS POR COBRAR -->
+        <section id="tab-cxc" class="tab-panel">
+          <div class="panel-actions">
+            <button id="btn-refresh-cxc" class="btn-ghost">Actualizar</button>
+          </div>
+          <div id="cxc-content"></div>
+        </section>
+
+        <!-- PESTAÑA: PIZARRA -->
+        <section id="tab-pizarra" class="tab-panel">
+          <div class="panel-actions pizarra-toolbar">
+            <select id="pizarra-selector"></select>
+            <button id="btn-pizarra-nueva" class="btn-primary btn-small">+ Nueva pizarra</button>
+            <button id="btn-pizarra-renombrar" class="btn-ghost btn-small">Renombrar</button>
+            <button id="btn-pizarra-borrar" class="btn-ghost btn-small btn-danger">Borrar pizarra</button>
+
+            <span class="pizarra-sep"></span>
+
+            <div class="pizarra-tools">
+              <button class="btn-tool active" data-tool="mover" title="Seleccionar y mover">Mover</button>
+              <button class="btn-tool" data-tool="lapiz" title="Dibujar a mano alzada">Lápiz</button>
+              <button class="btn-tool" data-tool="linea" title="Dibujar una línea recta (arrastrar)">Línea</button>
+              <button class="btn-tool" data-tool="flecha" title="Dibujar una flecha recta (arrastrar)">Flecha</button>
+              <button class="btn-tool" data-tool="conectar" title="Conectar dos formas: clic en una y luego en la otra">Conectar</button>
+              <button class="btn-tool" data-tool="borrador" title="Borrar un trazo, línea, flecha o conexión">Borrador</button>
+            </div>
+            <input type="color" id="pizarra-color" value="#e8b33d" title="Color del lápiz/línea/forma">
+            <input type="range" id="pizarra-grosor" min="1" max="20" value="3" title="Grosor del lápiz/línea">
+            <button id="btn-pizarra-undo" class="btn-ghost btn-small" title="Deshacer">Deshacer</button>
+            <button id="btn-pizarra-redo" class="btn-ghost btn-small" title="Rehacer">Rehacer</button>
+
+            <span class="pizarra-sep"></span>
+
+            <button id="btn-pizarra-texto" class="btn-ghost btn-small">+ Texto</button>
+            <button id="btn-pizarra-forma" class="btn-ghost btn-small">+ Forma</button>
+            <button id="btn-pizarra-imagen" class="btn-ghost btn-small">+ Imagen</button>
+            <button id="btn-pizarra-pdf" class="btn-ghost btn-small">+ PDF</button>
+            <button id="btn-pizarra-audio" class="btn-ghost btn-small">+ Audio</button>
+            <button id="btn-pizarra-video" class="btn-ghost btn-small">+ Video</button>
+            <input type="file" id="pizarra-file-imagen" class="hidden" accept="image/png,image/jpeg,image/gif,image/webp">
+            <input type="file" id="pizarra-file-pdf" class="hidden" accept="application/pdf">
+            <input type="file" id="pizarra-file-audio" class="hidden" accept="audio/mpeg,audio/wav,audio/ogg,audio/mp4,audio/webm,.mp3,.wav,.ogg,.m4a,.webm">
+            <input type="file" id="pizarra-file-video" class="hidden" accept="video/mp4,video/quicktime,.mp4,.mov">
+
+            <span class="pizarra-sep"></span>
+
+            <div class="pizarra-zoom">
+              <button id="btn-pizarra-zoom-out" class="btn-ghost btn-small" title="Alejar">−</button>
+              <span id="pizarra-zoom-nivel">100%</span>
+              <button id="btn-pizarra-zoom-in" class="btn-ghost btn-small" title="Acercar">+</button>
+              <button id="btn-pizarra-zoom-reset" class="btn-ghost btn-small" title="Restablecer zoom">Reset</button>
+            </div>
+          </div>
+          <div id="pizarra-vacia" class="empty-hint hidden">No hay pizarras todavía. Creá una con "+ Nueva pizarra".</div>
+          <div id="pizarra-canvas-wrap" class="pizarra-canvas-wrap">
+            <div id="pizarra-canvas" class="pizarra-canvas">
+              <svg id="pizarra-svg" class="pizarra-svg"></svg>
+            </div>
+          </div>
+        </section>
+
+        <!-- Los modales de Agencia van dentro de #agencia-root para que
+             agencia.css pueda scoparlos: .modal y .modal-actions también
+             existen en styles.css con otro significado. -->
+
+        <!-- MODAL: Cargar desde mensaje -->
+        <div id="modal-mensaje" class="modal hidden">
+          <div class="modal-box">
+            <h3>Cargar material desde mensaje</h3>
+            <textarea id="mensaje-texto" rows="6" placeholder="Pega aquí el mensaje de WhatsApp o escribe una descripción manual..."></textarea>
+            <label class="mensaje-foto-label">Foto del material (opcional)
+              <input type="file" id="mensaje-foto" accept="image/png,image/jpeg,image/gif,image/webp">
+            </label>
+            <img id="mensaje-foto-preview" class="foto-preview hidden" alt="Vista previa">
+            <div id="mensaje-inferencia" class="inferencia"></div>
+            <div class="modal-actions">
+              <button id="btn-mensaje-cancelar" class="btn-ghost">Cancelar</button>
+              <button id="btn-mensaje-confirmar" class="btn-primary">Cargar</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- MODAL: Nueva tarea kanban -->
+        <div id="modal-tarea" class="modal hidden">
+          <div class="modal-box">
+            <h3 id="modal-tarea-titulo">Nueva tarea</h3>
+            <label>Título<input type="text" id="tarea-titulo"></label>
+            <label>Tipo
+              <select id="tarea-tipo">
+                <option value="facturable">Facturable</option>
+                <option value="no facturable">No facturable</option>
+              </select>
+            </label>
+            <label>Cliente<input type="text" id="tarea-cliente" list="lista-clientes"></label>
+            <datalist id="lista-clientes"></datalist>
+            <label>Entregable
+              <select id="tarea-entregable">
+                <option value="">--</option>
+                <option value="reel">reel</option>
+                <option value="video">video</option>
+                <option value="carousel">carousel</option>
+                <option value="post">post</option>
+                <option value="reel_extracto">reel_extracto</option>
+              </select>
+            </label>
+            <label>Asignado a
+              <select id="tarea-asignado">
+                <option value="iBrk">iBrk</option>
+                <option value="CM">CM</option>
+                <option value="Ads">Ads</option>
+              </select>
+            </label>
+            <label>Fecha límite
+              <input type="datetime-local" id="tarea-fecha">
+              <div class="quick-deadline-buttons">
+                <button type="button" class="btn-ghost btn-small btn-deadline" data-mins="30">+30min</button>
+                <button type="button" class="btn-ghost btn-small btn-deadline" data-mins="60">+1h</button>
+                <button type="button" class="btn-ghost btn-small btn-deadline" data-mins="120">+2h</button>
+                <button type="button" class="btn-ghost btn-small btn-deadline" data-mins="240">+4h</button>
+                <button type="button" class="btn-ghost btn-small btn-deadline" data-mins="1440">+1 día</button>
+              </div>
+            </label>
+            <label>Notas<textarea id="tarea-notas" rows="2"></textarea></label>
+            <div class="modal-actions">
+              <button id="btn-tarea-cancelar" class="btn-ghost">Cancelar</button>
+              <button id="btn-tarea-confirmar" class="btn-primary">Crear</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- MODAL: Etapas de produccion -->
+        <div id="modal-etapas" class="modal hidden">
+          <div class="modal-box">
+            <h3>Etapas de producción</h3>
+            <p class="modal-hint">Ajusta las etapas antes de empezar a trackear "<span id="etapas-tarea-titulo"></span>"</p>
+            <div id="etapas-lista"></div>
+            <button id="btn-etapa-agregar" type="button" class="btn-ghost btn-small">+ Agregar etapa</button>
+            <div class="modal-actions">
+              <button id="btn-etapas-cancelar" class="btn-ghost">Mover sin trackear</button>
+              <button id="btn-etapas-confirmar" class="btn-primary">Empezar a trackear</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- MODAL: Nota de tarea -->
+        <div id="modal-nota" class="modal hidden">
+          <div class="modal-box">
+            <h3>Nota</h3>
+            <p class="modal-hint">Nota de "<span id="nota-tarea-titulo"></span>"</p>
+            <label>Nota<textarea id="nota-texto" rows="5" placeholder="Escribe una nota..."></textarea></label>
+            <div class="modal-actions">
+              <button id="btn-nota-cancelar" class="btn-ghost">Cancelar</button>
+              <button id="btn-nota-guardar" class="btn-primary">Guardar</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- MODAL: Entregable directo CM/Ads (sin pasar por Kanban) -->
+        <div id="modal-entrega" class="modal hidden">
+          <div class="modal-box">
+            <h3>Registrar entregable (CM / Ads)</h3>
+            <label>Empleado
+              <select id="entrega-empleado">
+                <option value="CM">CM</option>
+                <option value="Ads">Ads</option>
+              </select>
+            </label>
+            <label>Cliente<input type="text" id="entrega-cliente" list="lista-clientes"></label>
+            <label>Tipo de entregable
+              <input type="text" id="entrega-tipo" list="lista-tipos-entrega" placeholder="reel, video, campaña...">
+            </label>
+            <datalist id="lista-tipos-entrega">
+              <option value="reel"></option>
+              <option value="video"></option>
+              <option value="carousel"></option>
+              <option value="post"></option>
+              <option value="reel_extracto"></option>
+              <option value="campaña"></option>
+              <option value="reporte"></option>
+            </datalist>
+            <label>Cantidad<input type="number" id="entrega-cantidad" value="1" min="1"></label>
+            <label>Descripción<textarea id="entrega-descripcion" rows="2"></textarea></label>
+            <label class="checkbox-label"><input type="checkbox" id="entrega-facturable"> Es facturable (cobrar al cliente)</label>
+            <div class="modal-actions">
+              <button id="btn-entrega-cancelar" class="btn-ghost">Cancelar</button>
+              <button id="btn-entrega-confirmar" class="btn-primary">Registrar</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- MODAL: Preguntar cliente/tipo cuando no se pudo inferir -->
+        <div id="modal-pregunta" class="modal hidden">
+          <div class="modal-box">
+            <h3 id="pregunta-titulo">Falta información</h3>
+            <div id="pregunta-cuerpo"></div>
+            <div class="modal-actions">
+              <button id="btn-pregunta-cancelar" class="btn-ghost">Cancelar</button>
+              <button id="btn-pregunta-confirmar" class="btn-primary">Continuar</button>
+            </div>
+          </div>
+        </div>
+      </div>
     </main>
   </div>
 
+  <!-- Contenedor de toasts de Agencia. Id propio para no chocar con
+       #toast-container, que crea showToast() de finanzas. -->
+  <div id="agencia-toast-container" class="toast-container"></div>
+
   <!-- Scripts en orden correcto, SIN defer -->
+  <!-- env.js lo genera build.sh a partir de variables de entorno; en local lo
+       creas a mano. Si falta, el 404 es inofensivo: config.js cae a valores
+       vacios y la app avisa de que falta configuracion. -->
+  <script src="env.js"></script>
   <script src="config.js"></script>
   <script src="utils/storage.js"></script>
   <script src="utils/currency.js"></script>
   <script src="utils/claude-api.js"></script>
   <script src="utils/google-sheets.js"></script>
+  <!-- utils de Agencia: dependen de GoogleSheets y CONFIG -->
+  <script src="utils/agencia-sheets.js"></script>
+  <!-- bootstrap: crea hojas/encabezados que falten; usa AgenciaSheets -->
+  <script src="utils/agencia-bootstrap.js"></script>
+  <script src="utils/drive-files.js"></script>
+  <script src="utils/prompt-modal.js"></script>
+  <!-- Agencia: api.js define la fachada Api (sobre AgenciaSheets) y
+       state.js el State compartido; ambos antes que los módulos que
+       los usan. app.js va al final porque orquesta a todos. -->
+  <script src="agencia/js/api.js"></script>
+  <script src="agencia/js/state.js"></script>
+  <script src="agencia/js/priority.js"></script>
+  <script src="agencia/js/parser.js"></script>
+  <script src="agencia/js/etapas.js"></script>
+  <script src="agencia/js/notificaciones.js"></script>
+  <script src="agencia/js/material.js"></script>
+  <script src="agencia/js/kanban.js"></script>
+  <script src="agencia/js/resumen.js"></script>
+  <script src="agencia/js/rendimiento.js"></script>
+  <script src="agencia/js/recibo.js"></script>
+  <script src="agencia/js/cobrar.js"></script>
+  <script src="agencia/js/pizarra.js"></script>
+  <script src="agencia/js/app.js"></script>
   <script src="script.js"></script>
+  <!-- agencia-nav.js envuelve switchTab, así que va después de script.js -->
+  <script src="agencia-nav.js"></script>
   <script>
     document.getElementById('btn-google-login').addEventListener('click', function() {
       try {

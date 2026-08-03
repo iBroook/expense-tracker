@@ -27,20 +27,10 @@ jobs:
 
       - name: Inject environment variables
         env:
-          CLAUDE_API_KEY: ${{ secrets.CLAUDE_API_KEY }}
           GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
-        run: |
-          # Crear archivo de variables de entorno que se carga antes que config.js
-          cat > env.js << EOF
-          // Variables de entorno inyectadas por GitHub Actions
-          window.ENV_CLAUDE_API_KEY = '${CLAUDE_API_KEY}';
-          window.ENV_GOOGLE_CLIENT_ID = '${GOOGLE_CLIENT_ID}';
-          EOF
-
-          # Inyectar el script de entorno en index.html (antes de config.js)
-          sed -i 's|<script src="config.js"></script>|<script src="env.js"></script>\n  <script src="config.js"></script>|g' index.html
-
-          echo "✅ Variables de entorno inyectadas correctamente"
+          AGENCIA_SPREADSHEET_ID: ${{ secrets.AGENCIA_SPREADSHEET_ID }}
+          AGENCIA_DRIVE_ID: ${{ secrets.AGENCIA_DRIVE_ID }}
+        run: sh build.sh
 
       - name: Setup Pages
         uses: actions/configure-pages@v4

@@ -1,0 +1,871 @@
+/* ============================================================
+   AGENCIA — estilos portados dentro de FinTrack
+   ------------------------------------------------------------
+   Todas las reglas van scopeadas bajo #agencia-root (o bajo un
+   id propio, ver "Fuera de #agencia-root" al final del archivo).
+   Motivo: Agencia y FinTrack comparten nombres de clase
+   (.active, .modal, .toast, .toast-container, .badge,
+   .btn-primary, .btn-ghost, .btn-danger, .card-title,
+   .modal-actions). Sin el scope, cada app pisaria a la otra.
+
+   Aqui NO se repiten el reset ni los estilos base: FinTrack ya
+   los define en styles.css.
+   ============================================================ */
+
+/* ------------------------------------------------------------
+   Variables. Se usa el prefijo --ag- para no chocar con las de
+   FinTrack (que tiene --border, --font-mono, etc. con otros
+   valores). Casi todas apuntan a variables de FinTrack, asi que
+   el modo claro/oscuro (atributo data-theme en <html>) funciona
+   solo, sin duplicar paletas.
+   ------------------------------------------------------------ */
+:root {
+  --ag-bg: var(--bg-input);
+  --ag-panel: var(--bg-card);
+  --ag-panel-raised: var(--bg-hover);
+  --ag-border: var(--border);
+  --ag-border-light: var(--border-light);
+
+  --ag-text: var(--text-primary);
+  --ag-muted: var(--text-secondary);
+  --ag-muted-2: var(--text-muted);
+
+  /* Acento principal = acento de FinTrack, para que Agencia no
+     desentone con el resto de la app. */
+  --ag-primary: var(--accent);
+  --ag-primary-dim: var(--accent-dim);
+  --ag-primary-soft: rgba(74, 222, 128, 0.12);
+  --ag-on-primary: #0d0f14;
+
+  /* "grade" era el teal de Agencia: aqui es el azul de FinTrack,
+     reservado para lo facturable / la conexion OK. */
+  --ag-grade: var(--blue);
+  --ag-grade-dim: var(--blue-dim);
+
+  --ag-warn: var(--yellow);
+  --ag-warn-dim: var(--yellow-dim);
+  --ag-danger: var(--red);
+  --ag-danger-dim: var(--red-dim);
+
+  --ag-font-display: var(--font-mono);
+  --ag-font-body: var(--font-sans);
+  --ag-font-mono: var(--font-mono);
+
+  --ag-radius: var(--radius-sm);
+  --ag-radius-lg: var(--radius);
+}
+
+[data-theme="light"] {
+  --ag-primary-soft: rgba(22, 163, 74, 0.12);
+}
+
+/* ------------------------------------------------------------
+   Contenedor raiz
+   ------------------------------------------------------------ */
+#agencia-root {
+  display: none; /* agencia-nav.js lo muestra al entrar a una pestana de Agencia */
+  max-width: 1400px;
+  font-family: var(--ag-font-body);
+  color: var(--ag-text);
+}
+
+#agencia-root .ag-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+  margin-bottom: 1.5rem;
+  padding-bottom: 0.9rem;
+  border-bottom: 1px solid var(--ag-border);
+}
+
+#agencia-root .ag-brand { display: flex; flex-direction: column; gap: 2px; }
+
+#agencia-root .ag-brand h1 {
+  font-family: var(--ag-font-display);
+  font-weight: 700;
+  font-size: 1.1rem;
+  line-height: 1.2;
+  letter-spacing: -0.5px;
+  margin: 0;
+  color: var(--ag-text);
+}
+
+#agencia-root .ag-brand-tag {
+  font-family: var(--ag-font-mono);
+  font-size: 0.68rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ag-primary);
+}
+
+#agencia-root .conn-status {
+  font-family: var(--ag-font-mono);
+  font-size: 0.7rem;
+  color: var(--ag-muted);
+  white-space: nowrap;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+#agencia-root .conn-status::before {
+  content: "";
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--ag-muted-2);
+  flex-shrink: 0;
+}
+#agencia-root .conn-status.ok { color: var(--ag-primary); }
+#agencia-root .conn-status.ok::before { background: var(--ag-primary); box-shadow: 0 0 0 3px var(--ag-primary-soft); }
+#agencia-root .conn-status.error { color: var(--ag-danger); }
+#agencia-root .conn-status.error::before {
+  background: var(--ag-danger);
+  box-shadow: 0 0 0 3px var(--ag-danger-dim);
+  animation: ag-pulse-dot 1.4s ease-in-out infinite;
+}
+
+@keyframes ag-pulse-dot {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: .35; transform: scale(.72); }
+}
+@media (prefers-reduced-motion: reduce) {
+  #agencia-root *, #agencia-toast-container * {
+    animation-duration: .001ms !important;
+    animation-iteration-count: 1 !important;
+  }
+}
+
+/* Paneles. .active tambien existe en FinTrack (.nav-item.active),
+   por eso el scope es obligatorio aqui. */
+#agencia-root .tab-panel { display: none; }
+#agencia-root .tab-panel.active { display: block; }
+
+#agencia-root h2 {
+  font-family: var(--ag-font-display);
+  font-weight: 700;
+  font-size: 0.9rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--ag-text);
+  margin: 1.9rem 0 0.9rem;
+  padding-left: 11px;
+  border-left: 3px solid var(--ag-primary);
+}
+#agencia-root .tab-panel h2:first-of-type { margin-top: 0; }
+
+#agencia-root .panel-actions {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 18px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+#agencia-root .panel-actions label {
+  font-size: 0.78rem;
+  color: var(--ag-muted);
+}
+
+/* ------------------------------------------------------------
+   Botones y controles
+   ------------------------------------------------------------ */
+#agencia-root button {
+  cursor: pointer;
+  font-family: var(--ag-font-body);
+  font-weight: 500;
+  font-size: 0.8rem;
+  letter-spacing: .015em;
+  border-radius: var(--ag-radius);
+  border: 1px solid var(--ag-border-light);
+  padding: 0.5rem 0.9rem;
+  color: var(--ag-text);
+  background: var(--ag-panel-raised);
+  transition: background .18s ease, border-color .18s ease, color .18s ease;
+}
+#agencia-root .btn-primary {
+  background: var(--ag-primary);
+  color: var(--ag-on-primary);
+  border-color: var(--ag-primary);
+  font-weight: 600;
+}
+#agencia-root .btn-primary:hover { box-shadow: var(--accent-glow); }
+#agencia-root .btn-ghost { background: transparent; color: var(--ag-muted); }
+#agencia-root .btn-ghost:hover { background: var(--ag-panel-raised); color: var(--ag-text); border-color: var(--ag-muted-2); }
+#agencia-root .btn-small { padding: 0.28rem 0.6rem; font-size: 0.72rem; }
+#agencia-root .btn-danger { color: var(--ag-danger); border-color: var(--ag-danger-dim); background: var(--ag-danger-dim); }
+#agencia-root .btn-danger:hover { background: var(--ag-danger); color: var(--ag-on-primary); }
+
+#agencia-root select,
+#agencia-root input[type=text],
+#agencia-root input[type=date],
+#agencia-root input[type=week],
+#agencia-root input[type=number],
+#agencia-root input[type=datetime-local],
+#agencia-root textarea {
+  padding: 0.45rem 0.6rem;
+  border-radius: var(--ag-radius);
+  border: 1px solid var(--ag-border-light);
+  background: var(--ag-bg);
+  color: var(--ag-text);
+  font-size: 0.82rem;
+  font-family: var(--ag-font-body);
+}
+#agencia-root select option { background: var(--ag-panel); color: var(--ag-text); }
+#agencia-root select:focus,
+#agencia-root input:focus,
+#agencia-root textarea:focus {
+  outline: 2px solid var(--ag-primary);
+  outline-offset: 1px;
+}
+#agencia-root button:focus-visible {
+  outline: 2px solid var(--ag-primary);
+  outline-offset: 2px;
+}
+
+/* ------------------------------------------------------------
+   Material Disponible
+   ------------------------------------------------------------ */
+#agencia-root .material-list { display: flex; flex-direction: column; gap: 12px; }
+#agencia-root .material-client-group {
+  background: var(--ag-panel);
+  border: 1px solid var(--ag-border);
+  border-radius: var(--ag-radius-lg);
+  padding: 14px 18px;
+}
+#agencia-root .material-client-group h3 {
+  margin: 0 0 10px;
+  font-family: var(--ag-font-display);
+  font-weight: 700;
+  font-size: 0.82rem;
+  text-transform: uppercase;
+  letter-spacing: .03em;
+  color: var(--ag-text);
+}
+#agencia-root .material-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 0;
+  border-top: 1px solid var(--ag-border);
+  flex-wrap: wrap;
+}
+#agencia-root .material-item:first-of-type { border-top: none; }
+#agencia-root .material-item-edit input,
+#agencia-root .material-item-edit select { flex: 1; min-width: 110px; }
+#agencia-root .material-item .tipo-badge {
+  padding: 2px 8px;
+  background: var(--ag-panel-raised);
+  color: var(--ag-muted);
+  border: 1px solid var(--ag-border);
+  border-radius: 3px;
+  font-family: var(--ag-font-mono);
+  font-size: 0.7rem;
+}
+#agencia-root .material-item .desc { flex: 1; min-width: 180px; font-size: 0.82rem; }
+#agencia-root .material-item .fechas { font-family: var(--ag-font-mono); font-size: 0.72rem; color: var(--ag-muted); }
+#agencia-root .prioridad-badge {
+  padding: 3px 11px;
+  border-radius: 20px;
+  font-size: 0.66rem;
+  font-weight: 700;
+  font-family: var(--ag-font-mono);
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  border: 1px solid transparent;
+}
+#agencia-root .prioridad-alta { background: var(--ag-danger-dim); color: var(--ag-danger); border-color: var(--ag-danger-dim); }
+#agencia-root .prioridad-media { background: var(--ag-warn-dim); color: var(--ag-warn); border-color: var(--ag-warn-dim); }
+#agencia-root .prioridad-baja { background: var(--ag-panel-raised); color: var(--ag-muted); border-color: var(--ag-border); }
+#agencia-root .material-item .item-actions { display: flex; gap: 6px; }
+#agencia-root .empty-hint {
+  color: var(--ag-muted);
+  font-size: 0.82rem;
+  font-style: italic;
+  padding: 22px;
+  text-align: center;
+}
+#agencia-root .material-foto-thumb {
+  width: 34px;
+  height: 34px;
+  object-fit: cover;
+  border-radius: 4px;
+  border: 1px solid var(--ag-border);
+  cursor: pointer;
+}
+#agencia-root .mensaje-foto-label {
+  display: block;
+  font-family: var(--ag-font-mono);
+  font-size: 0.72rem;
+  color: var(--ag-muted);
+  margin: 8px 0 4px;
+}
+#agencia-root .foto-preview {
+  max-width: 100%;
+  max-height: 160px;
+  border-radius: 4px;
+  border: 1px solid var(--ag-border);
+  margin-bottom: 8px;
+  object-fit: contain;
+}
+
+/* ------------------------------------------------------------
+   Kanban
+   ------------------------------------------------------------ */
+#agencia-root .kanban-board {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(190px, 1fr));
+  gap: 14px;
+  align-items: start;
+  overflow-x: auto;
+  padding-bottom: 4px;
+}
+#agencia-root .kanban-col {
+  background: var(--ag-panel);
+  border: 1px solid var(--ag-border);
+  border-radius: var(--ag-radius-lg);
+  padding: 12px;
+  min-height: 220px;
+}
+#agencia-root .kanban-col h3 {
+  margin: 0 0 12px;
+  font-family: var(--ag-font-display);
+  font-weight: 700;
+  font-size: 0.72rem;
+  color: var(--ag-muted);
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  padding-bottom: 9px;
+  border-bottom: 1px solid var(--ag-border);
+}
+#agencia-root .kanban-cards { display: flex; flex-direction: column; gap: 9px; min-height: 60px; }
+#agencia-root .kanban-cards.drag-over {
+  background: var(--ag-primary-soft);
+  border-radius: 4px;
+  outline: 1px dashed var(--ag-primary);
+}
+#agencia-root .kanban-card {
+  background: var(--ag-panel-raised);
+  border: 1px solid var(--ag-border);
+  border-left: 3px solid var(--ag-border);
+  border-radius: var(--ag-radius);
+  padding: 10px 12px;
+  cursor: grab;
+  font-size: 0.82rem;
+  transition: border-color .15s ease;
+}
+#agencia-root .kanban-card:has(.badge.facturable) { border-left-color: var(--ag-grade); }
+#agencia-root .kanban-card:has(.badge.vencida) { border-left-color: var(--ag-danger); }
+#agencia-root .kanban-card.dragging { opacity: .4; }
+/* .card-title existe tambien en FinTrack: aqui va scopeada. */
+#agencia-root .kanban-card .card-title {
+  font-family: var(--ag-font-body);
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--ag-text);
+  text-transform: none;
+  letter-spacing: normal;
+  margin-bottom: 6px;
+  overflow-wrap: anywhere;
+}
+#agencia-root .kanban-card .card-meta {
+  font-size: 0.7rem;
+  color: var(--ag-muted);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+/* .badge existe tambien en FinTrack (pill verde/rojo). */
+#agencia-root .badge {
+  display: inline-flex;
+  align-items: center;
+  font-family: var(--ag-font-mono);
+  padding: 2px 7px;
+  border-radius: 3px;
+  font-size: 0.64rem;
+  font-weight: 500;
+  background: var(--ag-panel);
+  color: var(--ag-muted);
+  border: 1px solid var(--ag-border);
+}
+#agencia-root .badge.facturable { background: var(--ag-grade-dim); color: var(--ag-grade); border-color: var(--ag-grade-dim); }
+#agencia-root .badge.no-facturable { background: var(--ag-panel); color: var(--ag-muted); }
+#agencia-root .badge.vencida { background: var(--ag-danger-dim); color: var(--ag-danger); border-color: var(--ag-danger-dim); }
+#agencia-root .badge.proxima { background: var(--ag-warn-dim); color: var(--ag-warn); border-color: var(--ag-warn-dim); }
+#agencia-root .kanban-card .card-actions { display: flex; gap: 6px; margin-top: 9px; }
+#agencia-root .kanban-card .card-actions button { padding: 3px 8px; font-size: 0.7rem; }
+
+#agencia-root .card-nota-wrap { position: relative; margin-left: auto; display: flex; }
+#agencia-root .kanban-card .btn-nota { padding: 3px 7px; color: var(--ag-muted-2); line-height: 0; }
+#agencia-root .kanban-card .btn-nota svg { vertical-align: middle; }
+#agencia-root .kanban-card .btn-nota.tiene-nota { color: var(--ag-primary); border-color: var(--ag-primary-soft); }
+
+#agencia-root .nota-tooltip {
+  position: absolute;
+  bottom: calc(100% + 7px);
+  right: 0;
+  z-index: 20;
+  width: max-content;
+  max-width: 240px;
+  padding: 7px 9px;
+  border-radius: 4px;
+  background: var(--ag-panel);
+  border: 1px solid var(--ag-border);
+  color: var(--ag-text);
+  font-size: 0.72rem;
+  line-height: 1.45;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  box-shadow: var(--shadow);
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity .12s ease;
+  pointer-events: none;
+}
+#agencia-root .card-nota-wrap:hover .nota-tooltip { opacity: 1; visibility: visible; }
+
+#agencia-root .card-etapa {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.7rem;
+  margin-top: 9px;
+  padding-top: 7px;
+  border-top: 1px dashed var(--ag-border);
+}
+#agencia-root .card-etapa .etapa-tiempo {
+  font-family: var(--ag-font-mono);
+  font-variant-numeric: tabular-nums;
+  color: var(--ag-muted);
+}
+#agencia-root .card-etapa .etapa-tiempo[data-start]::before {
+  content: "";
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  margin-right: 5px;
+  border-radius: 50%;
+  background: var(--ag-primary);
+  vertical-align: middle;
+  animation: ag-pulse-dot 1.6s ease-in-out infinite;
+}
+#agencia-root .card-etapa .etapa-nombre { font-weight: 600; }
+#agencia-root .card-etapa .etapa-nombre.pausada { color: var(--ag-warn); }
+#agencia-root .card-etapa .etapa-acciones { margin-left: auto; display: flex; gap: 6px; }
+#agencia-root .card-etapa .etapa-acciones button { padding: 3px 8px; font-size: 0.7rem; }
+
+#agencia-root .etapa-dot { width: 9px; height: 9px; border-radius: 50%; display: inline-block; flex-shrink: 0; }
+#agencia-root .etapa-dot.ok { background: var(--ag-primary); }
+#agencia-root .etapa-dot.warn { background: var(--ag-warn); }
+#agencia-root .etapa-dot.danger { background: var(--ag-danger); }
+#agencia-root .etapa-dot.neutral { background: var(--ag-muted-2); }
+
+#agencia-root .etapa-row { display: flex; gap: 6px; margin-bottom: 6px; align-items: center; }
+#agencia-root .etapa-row input { flex: 1; }
+#agencia-root .quick-deadline-buttons { display: flex; gap: 4px; flex-wrap: wrap; margin-top: 4px; }
+#agencia-root .quick-deadline-buttons button { padding: 3px 8px; font-size: 0.7rem; }
+#agencia-root .modal-hint { font-size: 0.75rem; color: var(--ag-muted); margin: -4px 0 4px; }
+
+/* ------------------------------------------------------------
+   Tablas (bitacora de produccion)
+   ------------------------------------------------------------ */
+#agencia-root .data-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 22px;
+  background: var(--ag-panel);
+  border: 1px solid var(--ag-border);
+  border-radius: var(--ag-radius-lg);
+  overflow: hidden;
+  font-family: var(--ag-font-mono);
+  font-size: 0.76rem;
+}
+#agencia-root .data-table th,
+#agencia-root .data-table td {
+  border-bottom: 1px solid var(--ag-border);
+  padding: 9px 12px;
+  text-align: left;
+  color: var(--ag-text);
+}
+#agencia-root .data-table tbody tr:last-child td { border-bottom: none; }
+#agencia-root .data-table th {
+  background: var(--ag-panel-raised);
+  color: var(--ag-muted);
+  font-family: var(--ag-font-body);
+  font-weight: 700;
+  text-transform: uppercase;
+  font-size: 0.66rem;
+  letter-spacing: .06em;
+  border-bottom: 2px solid var(--ag-primary);
+}
+#agencia-root .data-table tbody tr:hover { background: var(--ag-panel-raised); }
+#agencia-root .totales-semana {
+  display: flex;
+  gap: 24px;
+  flex-wrap: wrap;
+  font-family: var(--ag-font-mono);
+  font-weight: 700;
+  font-size: 0.82rem;
+  color: var(--ag-text);
+}
+
+/* ------------------------------------------------------------
+   Cuentas por cobrar
+   ------------------------------------------------------------ */
+#agencia-root .cxc-client-block {
+  background: var(--ag-panel);
+  border: 1px solid var(--ag-border);
+  border-radius: var(--ag-radius-lg);
+  padding: 16px 18px;
+  margin-bottom: 16px;
+}
+#agencia-root .cxc-client-block h3 {
+  margin: 0 0 10px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  font-family: var(--ag-font-display);
+  font-weight: 700;
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: .03em;
+}
+#agencia-root .cxc-total-general {
+  font-family: var(--ag-font-mono);
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: var(--ag-primary);
+  margin: 20px 0;
+}
+#agencia-root .pago-toggle {
+  padding: 3px 10px;
+  border-radius: 20px;
+  font-size: 0.7rem;
+  font-family: var(--ag-font-mono);
+  font-weight: 600;
+  border: 1px solid transparent;
+}
+#agencia-root .pago-pendiente { background: var(--ag-danger-dim); color: var(--ag-danger); }
+#agencia-root .pago-pagado { background: var(--ag-primary-dim); color: var(--ag-primary); }
+
+#agencia-root .hidden { display: none !important; }
+
+/* ------------------------------------------------------------
+   Modales de Agencia (viven dentro de #agencia-root, ver
+   index.html). .modal y .modal-actions existen tambien en
+   FinTrack con otro significado: el scope los separa.
+   ------------------------------------------------------------ */
+#agencia-root .modal {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, .7);
+  backdrop-filter: blur(3px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  z-index: 1000;
+}
+#agencia-root .modal.hidden { display: none; }
+#agencia-root .modal-box {
+  background: var(--ag-panel);
+  border: 1px solid var(--ag-border);
+  border-radius: var(--radius-lg);
+  padding: 1.6rem;
+  width: 460px;
+  max-width: 100%;
+  max-height: 85vh;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  box-shadow: var(--shadow-lg);
+}
+#agencia-root .modal-box h3 {
+  margin: 0;
+  font-family: var(--ag-font-display);
+  font-weight: 700;
+  font-size: 1rem;
+  text-transform: uppercase;
+  letter-spacing: .02em;
+  color: var(--ag-text);
+}
+#agencia-root .modal-box label {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--ag-muted);
+  text-transform: uppercase;
+  letter-spacing: .04em;
+}
+#agencia-root .modal-box label.checkbox-label {
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+  text-transform: none;
+  letter-spacing: normal;
+  font-weight: 400;
+  font-size: 0.82rem;
+}
+#agencia-root .modal-box label.checkbox-label input { width: auto; }
+#agencia-root .modal-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 6px; }
+#agencia-root .inferencia {
+  font-family: var(--ag-font-mono);
+  font-size: 0.76rem;
+  background: var(--ag-bg);
+  border: 1px solid var(--ag-border);
+  border-radius: var(--ag-radius);
+  padding: 10px;
+}
+#agencia-root .inferencia .ok { color: var(--ag-primary); }
+#agencia-root .inferencia .warn { color: var(--ag-warn); }
+
+/* ------------------------------------------------------------
+   Pizarra
+   ------------------------------------------------------------ */
+#agencia-root .pizarra-toolbar { align-items: center; row-gap: 10px; }
+#agencia-root .pizarra-sep { width: 1px; align-self: stretch; background: var(--ag-border); margin: 0 4px; }
+#agencia-root .pizarra-tools { display: flex; gap: 4px; }
+#agencia-root .btn-tool {
+  padding: 0.32rem 0.75rem;
+  font-size: 0.75rem;
+  font-family: var(--ag-font-mono);
+  background: transparent;
+  color: var(--ag-muted);
+  border: 1px solid var(--ag-border-light);
+  border-radius: var(--ag-radius);
+  cursor: pointer;
+}
+#agencia-root .btn-tool:hover { color: var(--ag-text); border-color: var(--ag-muted-2); }
+#agencia-root .btn-tool.active {
+  color: var(--ag-primary);
+  border-color: var(--ag-primary);
+  background: var(--ag-primary-soft);
+}
+#agencia-root #pizarra-color {
+  width: 34px;
+  height: 30px;
+  padding: 2px;
+  background: var(--ag-panel-raised);
+  border: 1px solid var(--ag-border-light);
+  border-radius: var(--ag-radius);
+  cursor: pointer;
+}
+#agencia-root #pizarra-grosor { width: 90px; accent-color: var(--ag-primary); }
+#agencia-root .pizarra-zoom { display: flex; align-items: center; gap: 6px; }
+#agencia-root .pizarra-zoom #pizarra-zoom-nivel {
+  font-family: var(--ag-font-mono);
+  font-size: 0.75rem;
+  color: var(--ag-muted);
+  min-width: 42px;
+  text-align: center;
+}
+
+#agencia-root .pizarra-canvas-wrap {
+  margin-top: 12px;
+  border: 1px solid var(--ag-border);
+  border-radius: var(--ag-radius-lg);
+  overflow: auto;
+  height: 70vh;
+  background: var(--ag-panel);
+}
+#agencia-root .pizarra-canvas {
+  position: relative;
+  width: 2600px;
+  height: 1600px;
+  background-image: radial-gradient(var(--ag-border-light) 1px, transparent 1px);
+  background-size: 22px 22px;
+  transform-origin: 0 0;
+}
+#agencia-root .pizarra-canvas.modo-lapiz,
+#agencia-root .pizarra-canvas.modo-borrador,
+#agencia-root .pizarra-canvas.modo-linea,
+#agencia-root .pizarra-canvas.modo-flecha { cursor: crosshair; }
+#agencia-root .pizarra-canvas.modo-conectar .pizarra-elemento { cursor: pointer; }
+#agencia-root .pizarra-canvas.arrastrando-archivo {
+  outline: 2px dashed var(--ag-primary);
+  outline-offset: -2px;
+  background-color: var(--ag-primary-soft);
+}
+#agencia-root .pizarra-svg { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+#agencia-root .pizarra-canvas.modo-borrador .pizarra-svg { pointer-events: auto; }
+#agencia-root .pizarra-trazo { fill: none; stroke-linecap: round; stroke-linejoin: round; }
+#agencia-root .pizarra-trazo.trazo-resaltado { filter: drop-shadow(0 0 3px var(--ag-danger)); cursor: pointer; }
+
+#agencia-root .pizarra-elemento {
+  position: absolute;
+  border: 1px solid var(--ag-border-light);
+  border-radius: 5px;
+  background: var(--ag-panel-raised);
+  overflow: hidden;
+  user-select: none;
+}
+#agencia-root .pizarra-elemento-handle {
+  height: 14px;
+  background: var(--ag-panel);
+  border-bottom: 1px solid var(--ag-border);
+}
+#agencia-root .pizarra-canvas.modo-mover .pizarra-elemento-handle { cursor: move; }
+#agencia-root .pizarra-elemento-contenido { position: absolute; top: 14px; left: 0; right: 0; bottom: 0; }
+#agencia-root .pizarra-elemento img { width: 100%; height: 100%; object-fit: contain; display: block; pointer-events: none; }
+#agencia-root .pizarra-elemento .pizarra-elemento-borrar {
+  position: absolute;
+  top: 1px;
+  right: 2px;
+  width: 16px;
+  height: 13px;
+  line-height: 12px;
+  text-align: center;
+  font-size: 0.68rem;
+  color: var(--ag-muted);
+  cursor: pointer;
+  z-index: 1;
+}
+#agencia-root .pizarra-elemento .pizarra-elemento-borrar:hover { color: var(--ag-danger); }
+#agencia-root .pizarra-elemento-texto {
+  width: 100%;
+  height: 100%;
+  padding: 8px;
+  border: none;
+  background: transparent;
+  color: var(--ag-text);
+  font-family: var(--ag-font-body);
+  font-size: 0.82rem;
+  resize: none;
+  outline: none;
+}
+#agencia-root .pizarra-elemento-archivo {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 10px;
+  text-align: center;
+  cursor: pointer;
+}
+#agencia-root .pizarra-elemento-archivo .pizarra-archivo-icono {
+  font-family: var(--ag-font-display);
+  font-size: 1.35rem;
+  color: var(--ag-primary);
+}
+#agencia-root .pizarra-elemento-archivo .pizarra-archivo-nombre {
+  font-size: 0.7rem;
+  color: var(--ag-muted);
+  word-break: break-word;
+}
+#agencia-root .pizarra-elemento audio { width: 100%; }
+/* El video se ajusta al elemento sin desbordarlo ni deformar el clip. El
+   contenedor conserva su tamano fijo y arrastrable como el resto. */
+#agencia-root .pizarra-elemento .pizarra-video {
+  width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  background: #000;
+  border-radius: 4px;
+}
+/* --forma-color lo fija pizarra.js inline sobre cada elemento. */
+#agencia-root .pizarra-elemento-forma {
+  border-width: 2px;
+  background: color-mix(in srgb, var(--forma-color, var(--ag-primary)) 16%, var(--ag-panel-raised));
+}
+#agencia-root .pizarra-elemento-forma .pizarra-elemento-texto { text-align: center; }
+#agencia-root .pizarra-elemento-conectando { outline: 2px solid var(--ag-primary); outline-offset: 2px; }
+#agencia-root .pizarra-resize-handle {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  width: 12px;
+  height: 12px;
+  cursor: nwse-resize;
+  background: linear-gradient(135deg, transparent 50%, var(--ag-muted) 50%);
+}
+
+/* ============================================================
+   FUERA DE #agencia-root
+   ------------------------------------------------------------
+   1) Toasts: el contenedor de Agencia vive al final del <body>
+      (fuera de #agencia-root) para no depender de si la seccion
+      esta visible. Lleva id propio, #agencia-toast-container,
+      porque .toast-container y .toast ya son de FinTrack.
+      Se ancla arriba a la derecha para no taparse con los
+      toasts de finanzas, que van abajo a la derecha.
+   2) Los modales de Agencia NO se inyectan en document.body:
+      son marcado estatico dentro de #agencia-root (revisado en
+      agencia/js/*.js: solo hacen classList.add/remove("hidden")
+      sobre #modal-mensaje, #modal-tarea, #modal-etapas,
+      #modal-nota, #modal-entrega y #modal-pregunta).
+      El unico overlay que si va al body es el de
+      utils/prompt-modal.js, que trae su propio CSS con prefijo
+      .pm-* y no colisiona con nada.
+   ============================================================ */
+#agencia-toast-container {
+  position: fixed;
+  top: 1.5rem;
+  right: 1.5rem;
+  bottom: auto;
+  left: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  z-index: 9999;
+  pointer-events: none;
+}
+#agencia-toast-container .toast {
+  pointer-events: auto;
+  background: var(--ag-panel);
+  color: var(--ag-text);
+  border: 1px solid var(--ag-border-light);
+  border-left: 3px solid var(--ag-primary);
+  padding: 0.7rem 1rem;
+  border-radius: var(--ag-radius);
+  font-family: var(--ag-font-body);
+  font-size: 0.82rem;
+  font-weight: 400;
+  max-width: 320px;
+  box-shadow: var(--shadow);
+}
+#agencia-toast-container .toast.error { border-left-color: var(--ag-danger); color: var(--ag-danger); }
+#agencia-toast-container .toast.success { border-left-color: var(--ag-primary); }
+
+/* Etiqueta separadora de la barra lateral. Clase con prefijo
+   propio: no toca nada de finanzas. */
+.ag-nav-label {
+  font-family: var(--font-mono);
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  padding: 0.9rem 0.85rem 0.4rem;
+  margin-top: 0.4rem;
+  border-top: 1px solid var(--border);
+}
+
+/* ------------------------------------------------------------
+   Responsive
+   ------------------------------------------------------------ */
+@media (max-width: 900px) {
+  #agencia-root .kanban-board { grid-template-columns: repeat(5, minmax(180px, 1fr)); }
+}
+
+@media (max-width: 768px) {
+  #agencia-root .ag-topbar { gap: 0.5rem; }
+  #agencia-root .panel-actions { gap: 8px; }
+  #agencia-root .panel-actions select,
+  #agencia-root .panel-actions input[type=week] { flex: 1; min-width: 140px; }
+  /* styles.css fuerza table { min-width: 600px } en movil: las
+     tablas de Agencia necesitan scroll horizontal propio. */
+  #agencia-root .tab-panel { overflow-x: auto; }
+  #agencia-root .pizarra-canvas-wrap { height: 60vh; }
+  #agencia-toast-container { top: 1rem; right: 1rem; left: 1rem; }
+  #agencia-toast-container .toast { max-width: none; }
+}

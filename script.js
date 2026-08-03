@@ -870,7 +870,7 @@ function handlePhotoUpload(event) {
 async function analyzePhoto() {
   if (!photoFile) return;
   if (!ClaudeAPI.isConfigured()) {
-    showToast('Claude API key no configurada.', 'error');
+    showToast('Proxy de Claude no configurado (CLAUDE_API_URL).', 'error');
     return;
   }
   var btn = document.getElementById('analyze-btn');

@@ -6,8 +6,24 @@
 const CONFIG = {
   // Estas variables son reemplazadas por GitHub Actions al hacer deploy
   // Para desarrollo local, crea un archivo config.local.js con tus valores
-  CLAUDE_API_KEY: window.ENV_CLAUDE_API_KEY || '',
+  // NOTA: no agregar secretos aqui. Todo lo que este en config.js/env.js se
+  // sirve publicamente en GitHub Pages. La key de Anthropic vive solo en el
+  // Worker de Cloudflare (server-side); el front nunca la ve ni la envia.
   GOOGLE_CLIENT_ID: window.ENV_GOOGLE_CLIENT_ID || '',
+
+  // Spreadsheet de la app Agencia. Separado del de finanzas a proposito: son
+  // dos negocios distintos y el mismo token OAuth cubre ambos. No es una
+  // credencial (conocer el ID no da acceso; eso lo controla con quien esta
+  // compartida la hoja), pero se inyecta via secret para no dejarlo en el
+  // historial de git de un repositorio publico.
+  AGENCIA_SPREADSHEET_ID: window.ENV_AGENCIA_SPREADSHEET_ID || '',
+
+  // Unidad compartida de Drive donde se guardan fotos y archivos de pizarra.
+  // Va aparte porque en "Mi unidad" el archivo lo posee quien lo sube y
+  // consume SU cuota, aunque este en una carpeta ajena; en una unidad
+  // compartida lo posee la unidad y el espacio sale del Workspace.
+  // Vacio = se usa "Mi unidad" de la cuenta que inicio sesion.
+  AGENCIA_DRIVE_ID: window.ENV_AGENCIA_DRIVE_ID || '',
 
   // Google OAuth & Sheets
   GOOGLE_SCOPES: 'https://www.googleapis.com/auth/spreadsheets https://www.googleapis.com/auth/drive.file',
@@ -16,7 +32,15 @@ const CONFIG = {
   GOOGLE_TOKEN_URL: 'https://oauth2.googleapis.com/token',
   GOOGLE_USERINFO_URL: 'https://www.googleapis.com/oauth2/v3/userinfo',
 
-  // Claude API
+  // Claude API — el front nunca habla directo con api.anthropic.com (CORS lo
+  // bloquea y ademas obligaria a exponer la key). Siempre via proxy.
+  //
+  // Al desplegar en Cloudflare Pages, cambiar por '/api/claude': eso apunta a
+  // functions/api/claude.js, que corre en el mismo origen. Con eso desaparecen
+  // el CORS y, sobre todo, el proxy abierto: Cloudflare Access protege el
+  // dominio entero y el navegador manda su cookie sola por ser mismo-origen.
+  // Se mantiene el Worker hasta completar la migracion porque GitHub Pages no
+  // ejecuta funciones y el analisis por foto dejaria de funcionar.
   CLAUDE_API_URL: 'https://fintrack-proxy.gabrielhm1005.workers.dev',
   CLAUDE_MODEL: 'claude-opus-4-6',
 
