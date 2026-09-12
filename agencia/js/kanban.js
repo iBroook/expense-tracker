@@ -45,7 +45,14 @@ const Kanban = (() => {
     });
   }
 
+  // true mientras se arrastra una tarjeta. El poll de 60s (renderAll) llama a
+  // render(), que vacia las columnas: si pasa a mitad del gesto la tarjeta
+  // desaparece del DOM y el drop nunca llega. Mismo problema que tenia la
+  // pizarra con su bandera `interactuando`.
+  let arrastrando = false;
+
   function render() {
+    if (arrastrando) return;
     poblarFiltroClientes();
     const f = filtros();
     ESTADOS.forEach((estado) => {
@@ -260,9 +267,13 @@ const Kanban = (() => {
     card.appendChild(actions);
 
     card.addEventListener("dragstart", () => {
+      arrastrando = true;
       card.classList.add("dragging");
     });
+    // dragend llega siempre, haya drop o no, asi que la bandera nunca queda
+    // colgada bloqueando el repintado.
     card.addEventListener("dragend", () => {
+      arrastrando = false;
       card.classList.remove("dragging");
     });
 
