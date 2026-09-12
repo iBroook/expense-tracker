@@ -43,6 +43,24 @@ async function refreshPizarraElementos() {
   return State.pizarraElementos;
 }
 
+// Las ocho hojas en una sola peticion. Es lo que usa el poll de app.js; los
+// refreshX individuales siguen existiendo para releer solo lo que toco una
+// accion concreta.
+async function refreshTodo() {
+  const hojas = await Api.getSheets([
+    "material_disponible", "kanban_tareas", "cuentas_por_cobrar", "empleados_output",
+    "tarifas", "tareas_etapas", "pizarras", "pizarra_elementos",
+  ]);
+  State.material = hojas.material_disponible;
+  State.kanban = hojas.kanban_tareas;
+  State.cxc = hojas.cuentas_por_cobrar;
+  State.empleadosOutput = hojas.empleados_output;
+  State.tarifas = hojas.tarifas;
+  State.tareaEtapas = hojas.tareas_etapas;
+  State.pizarras = hojas.pizarras;
+  State.pizarraElementos = hojas.pizarra_elementos;
+}
+
 function clientesConocidos() {
   const set = new Set();
   State.tarifas.forEach((t) => t.Cliente && set.add(t.Cliente));

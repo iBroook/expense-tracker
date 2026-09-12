@@ -73,6 +73,34 @@ var AgenciaSheets = {
     });
   },
 
+  // Varias hojas en una sola peticion HTTP (values:batchGet). El poll de 60s
+  // de app.js lee las ocho: con getSheet eran ocho peticiones por minuto por
+  // pestaña abierta; con esto es una. Devuelve { nombreHoja: filas }.
+  getSheets: function(sheetNames) {
+    var self = this;
+    return Promise.resolve().then(function() {
+      var ranges = sheetNames.map(function(n) {
+        self._cols(n);  // valida el nombre antes de pedir nada
+        return self._range(n);
+      });
+      return GoogleSheets.readRanges(self._spreadsheetId(), ranges);
+    }).then(function(valueRanges) {
+      var out = {};
+      sheetNames.forEach(function(name, i) {
+        var vr = valueRanges[i] || {};
+        // batchGet responde en el orden pedido; se comprueba igualmente que
+        // el rango devuelto pertenezca a esta hoja antes de fiarse del indice.
+        if (vr.range && vr.range.indexOf(name) === -1) {
+          throw new Error('batchGet devolvio ' + vr.range + ' donde se esperaba ' + name);
+        }
+        out[name] = self._parsearValores(vr.values || []).map(function(row) {
+          return self._clean(row);
+        });
+      });
+      return out;
+    });
+  },
+
   createRow: function(sheetName, data) {
     var self = this;
     return Promise.resolve().then(function() {
@@ -202,23 +230,29 @@ var AgenciaSheets = {
     return GoogleSheets.readRange(
       self._spreadsheetId(), self._range(sheetName)
     ).then(function(data) {
-      var values = data.values || [];
-      if (!values.length) return [];
-      var header = values[0];
-      var rows = [];
-      for (var i = 1; i < values.length; i++) {
-        var raw = values[i] || [];
-        var row = {};
-        // Las celdas vacias al final de una fila no llegan en la respuesta:
-        // se rellenan con "" hasta cubrir el encabezado.
-        for (var c = 0; c < header.length; c++) {
-          row[header[c]] = raw[c] === undefined ? '' : raw[c];
-        }
-        row._row = i + 1;
-        rows.push(row);
-      }
-      return rows;
+      return self._parsearValores(data.values || []);
     });
+  },
+
+  // Convierte la matriz de celdas de una hoja (fila 1 = encabezado) en
+  // objetos, conservando el numero de fila real en _row. Compartido por la
+  // lectura individual y la de batchGet.
+  _parsearValores: function(values) {
+    if (!values.length) return [];
+    var header = values[0];
+    var rows = [];
+    for (var i = 1; i < values.length; i++) {
+      var raw = values[i] || [];
+      var row = {};
+      // Las celdas vacias al final de una fila no llegan en la respuesta:
+      // se rellenan con "" hasta cubrir el encabezado.
+      for (var c = 0; c < header.length; c++) {
+        row[header[c]] = raw[c] === undefined ? '' : raw[c];
+      }
+      row._row = i + 1;
+      rows.push(row);
+    }
+    return rows;
   },
 
   _findById: function(sheetName, idValue) {

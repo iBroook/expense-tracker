@@ -28,16 +28,9 @@
   }
 
   async function loadAll() {
-    await Promise.all([
-      refreshMaterial(),
-      refreshKanban(),
-      refreshCxc(),
-      refreshEmpleadosOutput(),
-      refreshTarifas(),
-      refreshTareaEtapas(),
-      refreshPizarras(),
-      refreshPizarraElementos(),
-    ]);
+    // Una sola peticion para las ocho hojas (refreshTodo, en state.js). Antes
+    // eran ocho en paralelo: ocho llamadas a la API por minuto por pestaña.
+    await refreshTodo();
   }
 
   function renderAll() {

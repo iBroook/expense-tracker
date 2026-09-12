@@ -7,6 +7,7 @@ const Api = (() => {
     // Ya no existe el endpoint /api/config: el nombre es fijo.
     getConfig: () => Promise.resolve({ agencia_nombre: "Agencia" }),
     getSheet: (name) => AgenciaSheets.getSheet(name),
+    getSheets: (names) => AgenciaSheets.getSheets(names),
     createRow: (name, data) => AgenciaSheets.createRow(name, data),
     updateRow: (name, id, updates) => AgenciaSheets.updateRow(name, id, updates),
     deleteRow: (name, id) => AgenciaSheets.deleteRow(name, id),

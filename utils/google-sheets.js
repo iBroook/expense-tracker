@@ -197,6 +197,21 @@ var GoogleSheets = {
     });
   },
 
+  // Varios rangos en UNA sola peticion (values:batchGet). Responde con los
+  // valueRanges en el mismo orden en que se pidieron.
+  readRanges: function(spreadsheetId, ranges) {
+    var token = this.getToken();
+    var qs = ranges.map(function(r) { return 'ranges=' + encodeURIComponent(r); }).join('&');
+    return fetch(CONFIG.GOOGLE_SHEETS_API + '/' + spreadsheetId + '/values:batchGet?' + qs, {
+      headers: { 'Authorization': 'Bearer ' + token }
+    }).then(function(r) {
+      if (!r.ok) return r.json().then(function(e) { throw new Error(e.error ? e.error.message : 'Error leyendo Sheets'); });
+      return r.json();
+    }).then(function(data) {
+      return data.valueRanges || [];
+    });
+  },
+
   updateRange: function(spreadsheetId, range, values) {
     var token = this.getToken();
     return fetch(CONFIG.GOOGLE_SHEETS_API + '/' + spreadsheetId + '/values/' + encodeURIComponent(range) + '?valueInputOption=USER_ENTERED', {
