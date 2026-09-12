@@ -202,8 +202,17 @@
 
             <span class="pizarra-sep"></span>
 
-            <button id="btn-pizarra-texto" class="btn-ghost btn-small">+ Texto</button>
-            <button id="btn-pizarra-forma" class="btn-ghost btn-small">+ Forma</button>
+            <button id="btn-pizarra-texto" class="btn-ghost btn-small" title="Texto dentro de una caja">+ Texto</button>
+            <button id="btn-pizarra-texto-libre" class="btn-ghost btn-small" title="Texto suelto sobre el lienzo, sin caja">+ Texto suelto</button>
+            <select id="pizarra-forma-tipo" title="Qué forma insertar">
+              <option value="rect">▭ Rectángulo</option>
+              <option value="redondeado">▢ Redondeado</option>
+              <option value="elipse">◯ Elipse</option>
+              <option value="rombo">◇ Rombo</option>
+              <option value="triangulo">△ Triángulo</option>
+            </select>
+            <button id="btn-pizarra-forma" class="btn-ghost btn-small" title="Insertar la forma elegida, con etiqueta editable">+ Forma</button>
+            <button id="btn-pizarra-enlace" class="btn-ghost btn-small" title="Vista previa desde un link de YouTube, TikTok, Instagram o una imagen (también podés pegar con Ctrl+V)">+ Enlace</button>
             <button id="btn-pizarra-imagen" class="btn-ghost btn-small">+ Imagen</button>
             <button id="btn-pizarra-pdf" class="btn-ghost btn-small">+ PDF</button>
             <button id="btn-pizarra-audio" class="btn-ghost btn-small">+ Audio</button>

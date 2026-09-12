@@ -3,16 +3,29 @@ const Pizarra = (() => {
   const SVG_NS = "http://www.w3.org/2000/svg";
   const DEFAULTS = {
     texto: { ancho: 200, alto: 120 },
+    texto_libre: { ancho: 220, alto: 60 },
     forma: { ancho: 140, alto: 90 },
     imagen: { ancho: 240, alto: 180 },
     pdf: { ancho: 160, alto: 190 },
     audio: { ancho: 240, alto: 70 },
+    enlace: { ancho: 320, alto: 400 },
   };
   // Tipos de elemento que se dibujan como trazo/linea en el SVG (a partir de
   // un path guardado en Contenido), en vez de como tarjeta arrastrable.
   const TIPOS_TRAZO = ["trazo", "linea", "flecha"];
   // Tipos cuyo Contenido es una referencia a un archivo de Drive.
   const TIPOS_ARCHIVO = ["imagen", "pdf", "audio", "video"];
+  // Tipos cuyo contenido es un <textarea> editable.
+  const TIPOS_TEXTO = ["texto", "texto_libre", "forma"];
+  // Formas admitidas en la columna Forma. La primera es el valor por defecto
+  // y el que asumen las filas viejas, que no traen la columna.
+  const FORMAS = ["rect", "redondeado", "elipse", "rombo", "triangulo"];
+  // Dentro de estos elementos el mousedown no arrastra: son controles que
+  // necesitan el gesto para si mismos.
+  const SEL_NO_ARRASTRABLE =
+    ".pizarra-elemento-borrar, .pizarra-resize-handle, .pizarra-elemento-texto, audio, video, iframe, a, button";
+  // Umbral en px antes de considerar que un gesto es arrastre y no un clic.
+  const UMBRAL_ARRASTRE = 3;
   // GIF transparente de 1x1: placeholder mientras baja el archivo de Drive.
   const PLACEHOLDER_IMAGEN =
     "data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==";
@@ -184,6 +197,10 @@ const Pizarra = (() => {
     if (interactuando) return;
     const activo = document.activeElement;
     if (activo && activo.classList && activo.classList.contains("pizarra-elemento-texto")) return;
+    // Una tarjeta en modo edicion tiene el texto abierto o un embed en uso: el
+    // foco de un iframe no se ve desde aca, asi que reconstruir el DOM cortaria
+    // la reproduccion a mitad. Se espera al proximo ciclo.
+    if (document.querySelector("#tab-pizarra .pizarra-elemento.editando")) return;
 
     renderElementos();
   }
@@ -328,15 +345,185 @@ const Pizarra = (() => {
     });
   }
 
+  // ---- enlaces externos ----
+  // Verificado en 2026-09 contra los endpoints reales: youtube-nocookie,
+  // tiktok/player/v1 e instagram/<code>/embed se incrustan sin token ni API
+  // key. X/Twitter, Facebook, LinkedIn y Pinterest mandan cabeceras que
+  // impiden el framing, asi que esos caen en la tarjeta de enlace simple.
+  const RE_YOUTUBE = /(?:youtube(?:-nocookie)?\.com\/(?:watch\?(?:.*&)?v=|shorts\/|embed\/|live\/|v\/)|youtu\.be\/)([A-Za-z0-9_-]{11})/;
+  const RE_TIKTOK = /tiktok\.com\/@[\w.\-]+\/(?:video|photo)\/(\d{17,21})/;
+  const RE_TIKTOK_V = /tiktok\.com\/v\/(\d{17,21})/;
+  const RE_TIKTOK_CORTO = /(?:vm|vt)\.tiktok\.com\/\w+|tiktok\.com\/t\/\w+/;
+  const RE_INSTAGRAM = /instagram\.com\/(?:p|reel|reels|tv)\/([A-Za-z0-9_-]{5,})/;
+  const RE_IMAGEN_EXT = /\.(jpe?g|png|gif|webp|avif|bmp|svg|jxl)(?:[?#]|$)/i;
+  const RE_VIDEO_EXT = /\.(mp4|webm|mov|m4v)(?:[?#]|$)/i;
+  // CDNs que sirven imagenes sin extension en la ruta.
+  const RE_CDN_IMAGEN = /^(?:i\.imgur\.com|pbs\.twimg\.com|images\.unsplash\.com|lh3\.googleusercontent\.com|[\w.-]*\.cdninstagram\.com)$/i;
+
+  function normalizarUrl(crudo) {
+    const texto = String(crudo == null ? "" : crudo).trim();
+    // Con espacios no es una URL: el navegador los percent-codifica y
+    // "texto que no es url" pasaria como https://texto%20que%20no%20es%20url/.
+    if (!texto || /\s/.test(texto)) return null;
+    try {
+      const url = new URL(/^https?:\/\//i.test(texto) ? texto : `https://${texto}`);
+      // Un host sin punto tampoco es un dominio ("hola" -> https://hola/).
+      if (!url.hostname.includes(".")) return null;
+      return url;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  function dominioDe(href) {
+    const url = normalizarUrl(href);
+    return url ? url.hostname.replace(/^www\./, "") : "";
+  }
+
+  // Un link de Google Imagenes no es la imagen: /imgres es una pagina HTML
+  // que ademas bloquea el framing. La URL real viaja en el parametro imgurl.
+  // La variante nueva (imgres?q=...) no la trae y no hay forma de deducirla:
+  // en ese caso se devuelve tal cual y termina como tarjeta de enlace.
+  function desenvolverGoogleImagenes(url) {
+    if (!/(^|\.)google\.[a-z.]+$/i.test(url.hostname)) return url;
+    if (!url.pathname.startsWith("/imgres")) return url;
+    const real = url.searchParams.get("imgurl") || url.searchParams.get("url");
+    return (real && normalizarUrl(real)) || url;
+  }
+
+  function analizarEnlace(crudo) {
+    let url = normalizarUrl(crudo);
+    if (!url) return { proveedor: "invalido" };
+    url = desenvolverGoogleImagenes(url);
+    const href = url.href;
+
+    const yt = href.match(RE_YOUTUBE);
+    if (yt) {
+      return { proveedor: "youtube", href, alto: 220,
+        embed: `https://www.youtube-nocookie.com/embed/${yt[1]}?rel=0` };
+    }
+    const tt = href.match(RE_TIKTOK) || href.match(RE_TIKTOK_V);
+    if (tt) {
+      return { proveedor: "tiktok", href, alto: 560,
+        embed: `https://www.tiktok.com/player/v1/${tt[1]}?music_info=1&description=1` };
+    }
+    const ig = href.match(RE_INSTAGRAM);
+    if (ig) {
+      return { proveedor: "instagram", href, alto: 640,
+        embed: `https://www.instagram.com/p/${ig[1]}/embed/captioned` };
+    }
+    if (RE_IMAGEN_EXT.test(url.pathname) || RE_CDN_IMAGEN.test(url.hostname)) {
+      return { proveedor: "imagen", href, alto: 260 };
+    }
+    if (RE_VIDEO_EXT.test(url.pathname)) return { proveedor: "video", href, alto: 240 };
+    if (RE_TIKTOK_CORTO.test(href)) return { proveedor: "tiktok_corto", href, alto: 150 };
+    return { proveedor: "generico", href, alto: 150 };
+  }
+
+  // Los links cortos de TikTok no llevan el ID y el redirect no se puede
+  // seguir con fetch (CORS). Su oEmbed si manda Access-Control-Allow-Origin:*,
+  // asi que devuelve el ID directo desde el navegador.
+  async function resolverTikTokCorto(href) {
+    const r = await fetch(`https://www.tiktok.com/oembed?url=${encodeURIComponent(href)}`);
+    if (!r.ok) throw new Error(`TikTok respondió ${r.status}`);
+    const datos = await r.json();
+    const id = datos.embed_product_id ||
+      (String(datos.html || "").match(/data-video-id="(\d+)"/) || [])[1];
+    if (!id) throw new Error("no se pudo leer el ID del video");
+    return { id: id, titulo: datos.title || "" };
+  }
+
+  function crearIframeEmbed(info) {
+    const marco = document.createElement("iframe");
+    marco.className = "pizarra-embed";
+    marco.src = info.embed;
+    marco.loading = "lazy";
+    marco.referrerPolicy = "strict-origin-when-cross-origin";
+    marco.allowFullscreen = true;
+    // Sin sandbox a proposito: TikTok e Instagram se rompen con el.
+    marco.setAttribute("allow",
+      "accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share");
+    return marco;
+  }
+
+  function crearTarjetaEnlace(info, el, mensaje) {
+    const card = document.createElement("a");
+    card.className = "pizarra-enlace-card";
+    card.href = info.href || el.Contenido || "#";
+    card.target = "_blank";
+    card.rel = "noopener noreferrer";
+
+    const icono = document.createElement("div");
+    icono.className = "pizarra-archivo-icono";
+    icono.textContent = "🔗";
+    card.appendChild(icono);
+
+    const titulo = document.createElement("div");
+    titulo.className = "pizarra-enlace-titulo";
+    titulo.textContent = el.Nombre_archivo || dominioDe(info.href) || "enlace";
+    card.appendChild(titulo);
+
+    const nota = document.createElement("div");
+    nota.className = "pizarra-archivo-nombre";
+    nota.textContent = mensaje || "Abrir en una pestaña nueva";
+    card.appendChild(nota);
+    return card;
+  }
+
+  function crearContenidoEnlace(el) {
+    const info = analizarEnlace(el.Contenido);
+    if (info.proveedor === "invalido") {
+      return crearTarjetaEnlace(info, el, "Enlace no válido");
+    }
+    if (info.embed) {
+      const caja = document.createElement("div");
+      caja.className = "pizarra-embed-caja";
+      caja.appendChild(crearIframeEmbed(info));
+      const hint = document.createElement("div");
+      hint.className = "pizarra-embed-hint";
+      hint.textContent = "Doble clic para interactuar";
+      caja.appendChild(hint);
+      return caja;
+    }
+    if (info.proveedor === "imagen") {
+      const img = document.createElement("img");
+      img.alt = el.Nombre_archivo || "imagen";
+      // Sin referrer: varios CDNs sirven un placeholder si detectan hotlinking.
+      img.referrerPolicy = "no-referrer";
+      img.addEventListener("error", () => {
+        img.replaceWith(crearTarjetaEnlace(info, el, "No se pudo cargar la imagen"));
+      });
+      img.src = info.href;
+      return img;
+    }
+    if (info.proveedor === "video") {
+      const video = document.createElement("video");
+      video.className = "pizarra-video";
+      video.controls = true;
+      video.src = info.href;
+      return video;
+    }
+    if (info.proveedor === "tiktok_corto") {
+      return crearTarjetaEnlace(info, el,
+        "Link corto de TikTok: pegá la URL larga para ver la vista previa");
+    }
+    return crearTarjetaEnlace(info, el);
+  }
+
   function crearTarjeta(el) {
     const div = document.createElement("div");
     div.className = "pizarra-elemento";
     if (el.Tipo === "forma") {
-      div.classList.add("pizarra-elemento-forma");
+      // La forma se pinta en un ::before y no en el borde del div: asi el
+      // clip-path del rombo/triangulo no recorta el boton de borrar ni el
+      // tirador de resize, que son hijos de la tarjeta.
+      const forma = FORMAS.includes(el.Forma) ? el.Forma : FORMAS[0];
+      div.classList.add("pizarra-elemento-forma", `forma-${forma}`);
       div.style.setProperty("--forma-color", el.Color || "#e8b33d");
-      div.style.borderColor = el.Color || "#e8b33d";
-      div.style.borderWidth = `${el.Grosor || 2}px`;
+      div.style.setProperty("--forma-grosor", `${el.Grosor || 2}px`);
     }
+    if (el.Tipo === "texto_libre") div.classList.add("pizarra-elemento-libre");
+    if (el.Tipo === "enlace") div.classList.add("pizarra-elemento-enlace");
     div.dataset.id = el.ID;
     div.style.left = `${el.X}px`;
     div.style.top = `${el.Y}px`;
@@ -352,10 +539,26 @@ const Pizarra = (() => {
       manejarClicConectar(el);
     });
 
-    const handle = document.createElement("div");
-    handle.className = "pizarra-elemento-handle";
-    handle.addEventListener("mousedown", (e) => iniciarArrastre(e, el));
-    div.appendChild(handle);
+    // El arrastre engancha en TODA la tarjeta. Antes colgaba solo del handle,
+    // una franja de 14px con el boton de borrar encima: acertarle era casi
+    // imposible y parecia que la pizarra no dejaba mover nada.
+    // SEL_NO_ARRASTRABLE excluye los controles que necesitan el gesto.
+    div.addEventListener("mousedown", (e) => iniciarArrastre(e, el, div));
+
+    // El texto y los embeds estan con pointer-events:none para poder arrastrar
+    // por encima de ellos; el doble clic los habilita para editar/interactuar.
+    div.addEventListener("dblclick", (e) => {
+      if (herramienta !== "mover") return;
+      e.stopPropagation();
+      activarEdicion(div);
+    });
+
+    // El texto suelto no lleva franja: es texto sobre el lienzo, sin caja.
+    if (el.Tipo !== "texto_libre") {
+      const handle = document.createElement("div");
+      handle.className = "pizarra-elemento-handle";
+      div.appendChild(handle);
+    }
 
     const btnBorrar = document.createElement("span");
     btnBorrar.className = "pizarra-elemento-borrar";
@@ -374,19 +577,39 @@ const Pizarra = (() => {
 
     const handleResize = document.createElement("div");
     handleResize.className = "pizarra-resize-handle";
-    handleResize.addEventListener("mousedown", (e) => iniciarResize(e, el));
+    handleResize.addEventListener("mousedown", (e) => iniciarResize(e, el, div));
     div.appendChild(handleResize);
 
     return div;
   }
 
+  // Habilita la interaccion con el contenido de una tarjeta (escribir en el
+  // textarea, usar los controles de un embed). Se sale al perder el foco o
+  // al hacer clic fuera.
+  function activarEdicion(div) {
+    div.classList.add("editando");
+    const ta = div.querySelector(".pizarra-elemento-texto");
+    if (ta) {
+      ta.focus();
+      return;
+    }
+    // Un iframe no emite blur hacia afuera, asi que el modo se cierra con el
+    // primer mousedown fuera de la tarjeta (en captura, antes que el arrastre).
+    const salir = (ev) => {
+      if (div.contains(ev.target)) return;
+      div.classList.remove("editando");
+      document.removeEventListener("mousedown", salir, true);
+    };
+    document.addEventListener("mousedown", salir, true);
+  }
+
   function crearContenidoPorTipo(el) {
-    if (el.Tipo === "texto" || el.Tipo === "forma") {
+    if (TIPOS_TEXTO.includes(el.Tipo)) {
       const ta = document.createElement("textarea");
       ta.className = "pizarra-elemento-texto";
-      ta.placeholder = el.Tipo === "forma" ? "Etiqueta..." : "";
+      ta.placeholder = el.Tipo === "forma" ? "Etiqueta..." : "Escribí algo...";
       ta.value = el.Contenido || "";
-      if (el.Tipo === "texto") {
+      if (el.Tipo !== "forma") {
         ta.style.color = el.Color || "";
         ta.style.fontSize = `${el.Grosor || 14}px`;
       }
@@ -394,8 +617,13 @@ const Pizarra = (() => {
         el.Contenido = ta.value;
         await Api.updateRow("pizarra_elementos", el.ID, { Contenido: ta.value });
       });
+      ta.addEventListener("blur", () => {
+        const card = ta.closest(".pizarra-elemento");
+        if (card) card.classList.remove("editando");
+      });
       return ta;
     }
+    if (el.Tipo === "enlace") return crearContenidoEnlace(el);
     if (el.Tipo === "imagen") {
       const img = document.createElement("img");
       img.alt = el.Nombre_archivo || "imagen";
@@ -459,14 +687,17 @@ const Pizarra = (() => {
   }
 
   // ---- mover / redimensionar (arrastre libre) ----
-  function iniciarArrastre(e, el) {
+  function iniciarArrastre(e, el, div) {
     if (herramienta !== "mover") return;
+    if (e.button !== 0) return;
+    // Los controles interactivos se quedan el gesto: el boton de borrar, el
+    // tirador de resize, el texto en modo edicion y los reproductores/embeds.
+    if (e.target.closest(SEL_NO_ARRASTRABLE)) return;
     e.preventDefault();
     const inicioX = e.clientX;
     const inicioY = e.clientY;
     const elX = Number(el.X) || 0;
     const elY = Number(el.Y) || 0;
-    const div = e.currentTarget.parentElement;
     interactuando = true;
     let movio = false;
 
@@ -476,7 +707,11 @@ const Pizarra = (() => {
     function onMove(ev) {
       const dx = (ev.clientX - inicioX) / zoom;
       const dy = (ev.clientY - inicioY) / zoom;
-      if (Math.abs(dx) > 2 || Math.abs(dy) > 2) movio = true;
+      // Umbral: sin el, un clic con un pixel de temblor moveria el elemento y
+      // dispararia una escritura al Sheet.
+      if (!movio && Math.abs(dx) < UMBRAL_ARRASTRE && Math.abs(dy) < UMBRAL_ARRASTRE) return;
+      movio = true;
+      div.classList.add("arrastrando");
       const nuevoX = Math.max(0, elX + dx);
       const nuevoY = Math.max(0, elY + dy);
       div.style.left = `${nuevoX}px`;
@@ -487,6 +722,7 @@ const Pizarra = (() => {
       document.removeEventListener("mousemove", onMove);
       document.removeEventListener("mouseup", onUp);
       interactuando = false;
+      div.classList.remove("arrastrando");
       if (!movio) return;
       const nuevoX = Math.max(0, elX + (ev.clientX - inicioX) / zoom);
       const nuevoY = Math.max(0, elY + (ev.clientY - inicioY) / zoom);
@@ -498,7 +734,7 @@ const Pizarra = (() => {
     document.addEventListener("mouseup", onUp);
   }
 
-  function iniciarResize(e, el) {
+  function iniciarResize(e, el, div) {
     if (herramienta !== "mover") return;
     e.preventDefault();
     e.stopPropagation();
@@ -508,7 +744,6 @@ const Pizarra = (() => {
     const altoIni = Number(el.Alto) || 100;
     const elX = Number(el.X) || 0;
     const elY = Number(el.Y) || 0;
-    const div = e.currentTarget.parentElement;
     interactuando = true;
 
     function onMove(ev) {
@@ -832,57 +1067,129 @@ const Pizarra = (() => {
     }
   }
 
-  // ---- agregar texto / imagen / pdf / audio ----
-  async function agregarTexto() {
+  // ---- agregar texto / forma / enlace / imagen / pdf / audio ----
+
+  // Crea un elemento en la posicion escalonada de siempre. `extra` sobrescribe
+  // los campos base, asi cada tipo solo declara lo suyo.
+  async function crearElementoBasico(tipo, extra) {
     if (!pizarraActualId) {
       toast("Primero creá o elegí una pizarra", "error");
-      return;
+      return null;
     }
     const offset = siguienteOffset();
-    const creado = await Api.createRow("pizarra_elementos", {
+    const tam = DEFAULTS[tipo];
+    const creado = await Api.createRow("pizarra_elementos", Object.assign({
       Pizarra_ID: pizarraActualId,
-      Tipo: "texto",
+      Tipo: tipo,
       X: 60 + offset, Y: 60 + offset,
-      Ancho: DEFAULTS.texto.ancho, Alto: DEFAULTS.texto.alto,
+      Ancho: tam.ancho, Alto: tam.alto,
       Contenido: "",
       Nombre_archivo: "",
-      Color: "#ecebe5",
-      Grosor: 14,
+      Color: "", Grosor: "",
       Z_index: siguienteZIndex(),
       Fecha_creacion: todayISO(),
-    });
+    }, extra || {}));
     State.pizarraElementos.push(creado);
     pushUndo({ tipo: "crear", elemento: { ...creado } });
     renderElementos();
-    const ta = document.querySelector(`.pizarra-elemento[data-id="${creado.ID}"] .pizarra-elemento-texto`);
-    if (ta) ta.focus();
+    return creado;
+  }
+
+  // Deja la tarjeta recien creada lista para escribir sin pedir doble clic.
+  function enfocarTexto(id) {
+    const div = document.querySelector(`.pizarra-elemento[data-id="${id}"]`);
+    if (div) activarEdicion(div);
+  }
+
+  async function agregarTexto() {
+    const creado = await crearElementoBasico("texto", { Color: "#ecebe5", Grosor: 14 });
+    if (creado) enfocarTexto(creado.ID);
+  }
+
+  // Texto sin caja: misma tarjeta arrastrable, pero sin borde, sin fondo y sin
+  // franja superior. Es un tipo aparte y no una variante de "texto" para no
+  // tocar el significado de las filas ya guardadas.
+  async function agregarTextoLibre() {
+    const creado = await crearElementoBasico("texto_libre", { Color: "#ecebe5", Grosor: 18 });
+    if (creado) enfocarTexto(creado.ID);
   }
 
   async function agregarForma() {
+    const sel = document.getElementById("pizarra-forma-tipo");
+    const forma = sel && FORMAS.includes(sel.value) ? sel.value : FORMAS[0];
+    const creado = await crearElementoBasico("forma", {
+      Color: document.getElementById("pizarra-color").value,
+      Grosor: 2,
+      Forma: forma,
+      Origen_ID: "", Destino_ID: "",
+    });
+    if (creado) enfocarTexto(creado.ID);
+  }
+
+  async function agregarEnlace() {
     if (!pizarraActualId) {
       toast("Primero creá o elegí una pizarra", "error");
       return;
     }
-    const offset = siguienteOffset();
-    const color = document.getElementById("pizarra-color").value;
-    const creado = await Api.createRow("pizarra_elementos", {
-      Pizarra_ID: pizarraActualId,
-      Tipo: "forma",
-      X: 60 + offset, Y: 60 + offset,
-      Ancho: DEFAULTS.forma.ancho, Alto: DEFAULTS.forma.alto,
-      Contenido: "",
-      Nombre_archivo: "",
-      Color: color,
-      Grosor: 2,
-      Z_index: siguienteZIndex(),
-      Fecha_creacion: todayISO(),
-      Origen_ID: "", Destino_ID: "",
+    let crudo;
+    try {
+      const r = await PromptModal.pedirTexto({
+        titulo: "Agregar desde un link",
+        etiqueta: "Pegá el link",
+        placeholder: "https://www.instagram.com/reel/...",
+        ayuda: "YouTube, TikTok, Instagram, o una URL directa de imagen o video. " +
+          "X/Twitter y Facebook no permiten vista previa: quedan como enlace.",
+        textoConfirmar: "Agregar",
+        validar: (v) => (analizarEnlace(v).proveedor === "invalido"
+          ? { ok: false, error: "No parece una URL válida." }
+          : { ok: true, valor: String(v).trim() }),
+      });
+      crudo = r.valor;
+    } catch (e) {
+      return; // cancelado
+    }
+    await crearEnlace(crudo);
+  }
+
+  async function crearEnlace(crudo) {
+    let info = analizarEnlace(crudo);
+    let href = info.href || String(crudo).trim();
+    let titulo = "";
+    // Se resuelve una sola vez, al crear, para guardar ya la URL larga: asi el
+    // render se mantiene sincrono y no pega a la red en cada repintado.
+    if (info.proveedor === "tiktok_corto") {
+      try {
+        const r = await resolverTikTokCorto(href);
+        href = `https://www.tiktok.com/@tiktok/video/${r.id}`;
+        titulo = r.titulo;
+        info = analizarEnlace(href);
+      } catch (e) {
+        toast(`No se pudo resolver el link corto de TikTok: ${e.message}`, "error");
+      }
+    }
+    const creado = await crearElementoBasico("enlace", {
+      Contenido: href,
+      Nombre_archivo: titulo || dominioDe(href),
+      Alto: info.alto || DEFAULTS.enlace.alto,
     });
-    State.pizarraElementos.push(creado);
-    pushUndo({ tipo: "crear", elemento: { ...creado } });
-    renderElementos();
-    const ta = document.querySelector(`.pizarra-elemento[data-id="${creado.ID}"] .pizarra-elemento-texto`);
-    if (ta) ta.focus();
+    if (creado) toast("Enlace agregado", "success");
+  }
+
+  // Pegar un link con la pestaña de pizarra abierta lo agrega directo: es el
+  // gesto natural para traer algo de Instagram, TikTok o YouTube.
+  async function onPaste(e) {
+    if (!document.getElementById("tab-pizarra").classList.contains("active")) return;
+    const activo = document.activeElement;
+    if (activo && ["INPUT", "TEXTAREA", "SELECT"].includes(activo.tagName)) return;
+    if (PromptModal.estaAbierto()) return;
+    const texto = ((e.clipboardData && e.clipboardData.getData("text")) || "").trim();
+    if (!/^https?:\/\//i.test(texto)) return;
+    e.preventDefault();
+    if (!pizarraActualId) {
+      toast("Primero creá o elegí una pizarra", "error");
+      return;
+    }
+    await crearEnlace(texto);
   }
 
   function dispararSelectorArchivo(tipo) {
@@ -959,7 +1266,13 @@ const Pizarra = (() => {
       return;
     }
     const archivos = Array.from(e.dataTransfer.files || []);
-    if (archivos.length === 0) return;
+    if (archivos.length === 0) {
+      // Arrastrar un enlace desde otra pestaña no trae archivos, solo la URL.
+      const uri = (e.dataTransfer.getData("text/uri-list") ||
+        e.dataTransfer.getData("text") || "").trim();
+      if (/^https?:\/\//i.test(uri)) await crearEnlace(uri);
+      return;
+    }
     const base = coordEnCanvas(e);
     let offset = 0;
     for (const file of archivos) {
@@ -996,7 +1309,10 @@ const Pizarra = (() => {
     document.addEventListener("keydown", onKeydown);
 
     document.getElementById("btn-pizarra-texto").addEventListener("click", agregarTexto);
+    document.getElementById("btn-pizarra-texto-libre").addEventListener("click", agregarTextoLibre);
     document.getElementById("btn-pizarra-forma").addEventListener("click", agregarForma);
+    document.getElementById("btn-pizarra-enlace").addEventListener("click", agregarEnlace);
+    document.addEventListener("paste", onPaste);
     document.getElementById("btn-pizarra-imagen").addEventListener("click", () => dispararSelectorArchivo("imagen"));
     document.getElementById("btn-pizarra-pdf").addEventListener("click", () => dispararSelectorArchivo("pdf"));
     document.getElementById("btn-pizarra-audio").addEventListener("click", () => dispararSelectorArchivo("audio"));

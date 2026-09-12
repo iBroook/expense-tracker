@@ -42,7 +42,11 @@ var AGENCIA_SHEETS = {
     'Contenido', 'Nombre_archivo', 'Color', 'Grosor', 'Z_index',
     'Fecha_creacion',
     // Origen_ID/Destino_ID solo se usan en Tipo="conexion".
-    'Origen_ID', 'Destino_ID'
+    'Origen_ID', 'Destino_ID',
+    // Forma solo se usa en Tipo="forma": rect | redondeado | elipse |
+    // rombo | triangulo. Las filas viejas no la traen y caen en "rect".
+    // Va al final a proposito: el bootstrap solo sabe AGREGAR columnas.
+    'Forma'
   ]
 };
 

@@ -707,12 +707,18 @@
   user-select: none;
 }
 #agencia-root .pizarra-elemento-handle {
+  position: relative;
+  z-index: 1;
   height: 14px;
   background: var(--ag-panel);
   border-bottom: 1px solid var(--ag-border);
 }
-#agencia-root .pizarra-canvas.modo-mover .pizarra-elemento-handle { cursor: move; }
-#agencia-root .pizarra-elemento-contenido { position: absolute; top: 14px; left: 0; right: 0; bottom: 0; }
+/* Ahora arrastra TODA la tarjeta, no solo la franja de 14px: el cursor lo
+   anuncia en toda su superficie. En modo edicion vuelve al cursor normal. */
+#agencia-root .pizarra-canvas.modo-mover .pizarra-elemento { cursor: move; }
+#agencia-root .pizarra-canvas.modo-mover .pizarra-elemento.editando { cursor: default; }
+#agencia-root .pizarra-elemento.arrastrando { opacity: 0.85; }
+#agencia-root .pizarra-elemento-contenido { position: absolute; top: 14px; left: 0; right: 0; bottom: 0; z-index: 1; }
 #agencia-root .pizarra-elemento img { width: 100%; height: 100%; object-fit: contain; display: block; pointer-events: none; }
 #agencia-root .pizarra-elemento .pizarra-elemento-borrar {
   position: absolute;
@@ -739,7 +745,12 @@
   font-size: 0.82rem;
   resize: none;
   outline: none;
+  /* Clave del arrastre: sin esto el textarea se queda el mousedown y la
+     tarjeta no se puede mover agarrandola por el texto. El doble clic pone
+     .editando y le devuelve la interaccion para escribir. */
+  pointer-events: none;
 }
+#agencia-root .pizarra-elemento.editando .pizarra-elemento-texto { pointer-events: auto; }
 #agencia-root .pizarra-elemento-archivo {
   width: 100%;
   height: 100%;
@@ -772,12 +783,118 @@
   background: #000;
   border-radius: 4px;
 }
-/* --forma-color lo fija pizarra.js inline sobre cada elemento. */
+/* --forma-color y --forma-grosor los fija pizarra.js inline sobre cada
+   elemento. La forma se dibuja en un ::before y NO en el borde del div: el
+   clip-path del rombo y el triangulo recortaria tambien el boton de borrar y
+   el tirador de resize, que son hijos de la tarjeta. */
 #agencia-root .pizarra-elemento-forma {
-  border-width: 2px;
+  border-color: transparent;
+  background: transparent;
+  overflow: visible;
+}
+#agencia-root .pizarra-elemento-forma::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 0;
   background: color-mix(in srgb, var(--forma-color, var(--ag-primary)) 16%, var(--ag-panel-raised));
+  border: var(--forma-grosor, 2px) solid var(--forma-color, var(--ag-primary));
+  border-radius: 5px;
+}
+#agencia-root .pizarra-elemento-forma.forma-redondeado::before { border-radius: 16px; }
+#agencia-root .pizarra-elemento-forma.forma-elipse::before { border-radius: 50%; }
+/* El borde no sigue al clip-path, asi que en rombo y triangulo se sustituye
+   por un relleno mas opaco para que la silueta se lea igual. */
+#agencia-root .pizarra-elemento-forma.forma-rombo::before,
+#agencia-root .pizarra-elemento-forma.forma-triangulo::before {
+  border: none;
+  border-radius: 0;
+  background: color-mix(in srgb, var(--forma-color, var(--ag-primary)) 38%, var(--ag-panel-raised));
+}
+#agencia-root .pizarra-elemento-forma.forma-rombo::before {
+  clip-path: polygon(50% 0, 100% 50%, 50% 100%, 0 50%);
+}
+#agencia-root .pizarra-elemento-forma.forma-triangulo::before {
+  clip-path: polygon(50% 0, 100% 100%, 0 100%);
 }
 #agencia-root .pizarra-elemento-forma .pizarra-elemento-texto { text-align: center; }
+/* El rombo y el triangulo dejan poco sitio util arriba: el texto baja al centro. */
+#agencia-root .pizarra-elemento-forma.forma-rombo .pizarra-elemento-texto,
+#agencia-root .pizarra-elemento-forma.forma-triangulo .pizarra-elemento-texto {
+  padding-top: 32%;
+}
+
+/* Texto suelto: la misma tarjeta arrastrable, pero sin caja ninguna. */
+#agencia-root .pizarra-elemento-libre {
+  border: none;
+  background: transparent;
+  overflow: visible;
+}
+#agencia-root .pizarra-elemento-libre .pizarra-elemento-contenido { top: 0; }
+#agencia-root .pizarra-elemento-libre .pizarra-elemento-texto {
+  padding: 2px 4px;
+  font-weight: 600;
+  line-height: 1.25;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.45);
+}
+/* La × solo aparece al pasar por encima: si no, flota sobre el lienzo sin caja
+   que la justifique. */
+#agencia-root .pizarra-elemento-libre .pizarra-elemento-borrar { opacity: 0; }
+#agencia-root .pizarra-elemento-libre:hover .pizarra-elemento-borrar { opacity: 1; }
+#agencia-root .pizarra-elemento-libre.editando .pizarra-elemento-texto {
+  outline: 1px dashed var(--ag-border);
+  background: color-mix(in srgb, var(--ag-panel) 70%, transparent);
+}
+
+/* Enlaces externos con vista previa incrustada. */
+#agencia-root .pizarra-elemento-enlace .pizarra-embed-caja {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  background: #000;
+}
+#agencia-root .pizarra-embed {
+  width: 100%;
+  height: 100%;
+  border: 0;
+  display: block;
+  /* Igual que el textarea: el iframe se traga el mousedown y haria imposible
+     arrastrar la tarjeta. El doble clic lo activa. */
+  pointer-events: none;
+}
+#agencia-root .pizarra-elemento-enlace.editando .pizarra-embed { pointer-events: auto; }
+#agencia-root .pizarra-embed-hint {
+  position: absolute;
+  bottom: 4px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-size: 0.62rem;
+  color: var(--ag-text);
+  background: color-mix(in srgb, var(--ag-panel) 85%, transparent);
+  pointer-events: none;
+  white-space: nowrap;
+}
+#agencia-root .pizarra-elemento-enlace.editando .pizarra-embed-hint { display: none; }
+#agencia-root .pizarra-enlace-card {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 10px;
+  text-align: center;
+  text-decoration: none;
+  color: var(--ag-text);
+}
+#agencia-root .pizarra-enlace-card .pizarra-enlace-titulo {
+  font-size: 0.76rem;
+  font-weight: 600;
+  word-break: break-word;
+}
 #agencia-root .pizarra-elemento-conectando { outline: 2px solid var(--ag-primary); outline-offset: 2px; }
 #agencia-root .pizarra-resize-handle {
   position: absolute;
