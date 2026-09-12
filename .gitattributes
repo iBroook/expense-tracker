@@ -1,0 +1,8 @@
+# Finales de linea LF en el repositorio para todo archivo de texto, se edite
+# desde donde se edite. Sin esto, git en Windows (core.autocrlf=true) avisa
+# "LF will be replaced by CRLF" en cada archivo y un commit descuidado puede
+# convertir archivos enteros en diffs de solo finales de linea.
+* text=auto eol=lf
+
+# El build de Cloudflare Pages ejecuta este script en Linux: CRLF lo rompe.
+*.sh text eol=lf
