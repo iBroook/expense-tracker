@@ -86,15 +86,46 @@ const Pizarra = (() => {
     return div;
   }
 
-  // Borra de Drive el archivo de un elemento imagen/pdf/audio para no dejar
-  // huérfanos. Nunca aborta el borrado del elemento: si falla, solo avisa.
+  // Manda a la papelera de Drive el archivo de un elemento imagen/pdf/audio/
+  // video para no dejar huerfanos. A la papelera y no borrado: asi el undo
+  // puede traerlo de vuelta junto con la fila (restaurarArchivoDeElemento).
+  // Nunca aborta el borrado del elemento: si falla, solo avisa.
   async function borrarArchivoDeElemento(el) {
     if (!TIPOS_ARCHIVO.includes(el.Tipo)) return;
     if (!esRefUtilizable(el)) return;
     try {
-      await DriveFiles.borrarArchivo(el.Contenido);
+      await DriveFiles.moverAPapelera(el.Contenido);
     } catch (e) {
-      toast(`No se pudo borrar el archivo de Drive: ${e.message}`, "error");
+      toast(`No se pudo mover el archivo a la papelera: ${e.message}`, "error");
+    }
+  }
+
+  async function restaurarArchivoDeElemento(el) {
+    if (!TIPOS_ARCHIVO.includes(el.Tipo)) return;
+    if (!esRefUtilizable(el)) return;
+    try {
+      const ok = await DriveFiles.restaurarDePapelera(el.Contenido);
+      if (!ok) toast("El archivo ya no está en la papelera de Drive; el elemento vuelve sin él", "error");
+    } catch (e) {
+      toast(`No se pudo restaurar el archivo de la papelera: ${e.message}`, "error");
+    }
+  }
+
+  // Ejecuta una escritura a Sheets. Si falla: avisa, deshace el cambio local
+  // (si se paso `revertir`) y repinta, en vez de dejar una promesa rechazada
+  // sin capturar. Antes, un fallo de red al arrastrar dejaba el elemento
+  // movido en pantalla y en el siguiente poll volvia solo a su sitio sin
+  // ninguna explicacion. Devuelve null al fallar; nunca un valor falsy al
+  // tener exito (deleteRow resuelve undefined y se normaliza a true).
+  async function persistir(op, revertir) {
+    try {
+      const valor = await op();
+      return valor === undefined ? true : valor;
+    } catch (e) {
+      if (revertir) revertir();
+      toast(`No se guardó en Google Sheets: ${e.message}`, "error");
+      renderElementos();
+      return null;
     }
   }
 
@@ -149,10 +180,11 @@ const Pizarra = (() => {
   async function crearPizarra() {
     const nombre = prompt("Nombre de la nueva pizarra:");
     if (!nombre || !nombre.trim()) return;
-    const creada = await Api.createRow("pizarras", {
+    const creada = await persistir(() => Api.createRow("pizarras", {
       Nombre: nombre.trim(),
       Fecha_creacion: todayISO(),
-    });
+    }));
+    if (!creada) return;
     await refreshPizarras();
     pizarraActualId = String(creada.ID);
     limpiarHistorial();
@@ -165,7 +197,7 @@ const Pizarra = (() => {
     const actual = State.pizarras.find((p) => String(p.ID) === String(pizarraActualId));
     const nombre = prompt("Nuevo nombre:", actual ? actual.Nombre : "");
     if (!nombre || !nombre.trim()) return;
-    await Api.updateRow("pizarras", pizarraActualId, { Nombre: nombre.trim() });
+    if (!(await persistir(() => Api.updateRow("pizarras", pizarraActualId, { Nombre: nombre.trim() })))) return;
     await refreshPizarras();
     render();
   }
@@ -174,11 +206,20 @@ const Pizarra = (() => {
     if (!pizarraActualId) return;
     const actual = State.pizarras.find((p) => String(p.ID) === String(pizarraActualId));
     if (!confirm(`Borrar la pizarra "${actual ? actual.Nombre : ""}" y todo su contenido? Esta acción no se puede deshacer.`)) return;
+    // Si un elemento no se puede borrar se sigue con los demas; la pizarra
+    // solo se elimina si no quedo ninguno, para no dejar filas huerfanas.
+    let fallidos = 0;
     for (const el of elementosDePizarra()) {
-      await Api.deleteRow("pizarra_elementos", el.ID);
+      if (!(await persistir(() => Api.deleteRow("pizarra_elementos", el.ID)))) { fallidos++; continue; }
       await borrarArchivoDeElemento(el);
     }
-    await Api.deleteRow("pizarras", pizarraActualId);
+    if (fallidos) {
+      toast(`${fallidos} elemento(s) no se pudieron borrar; la pizarra se conserva`, "error");
+      await refreshPizarraElementos();
+      render();
+      return;
+    }
+    if (!(await persistir(() => Api.deleteRow("pizarras", pizarraActualId)))) return;
     pizarraActualId = null;
     limpiarHistorial();
     await Promise.all([refreshPizarras(), refreshPizarraElementos()]);
@@ -441,8 +482,10 @@ const Pizarra = (() => {
     marco.referrerPolicy = "strict-origin-when-cross-origin";
     marco.allowFullscreen = true;
     // Sin sandbox a proposito: TikTok e Instagram se rompen con el.
+    // Sin web-share: Chrome no lo reconoce como feature de iframe y avisa en
+    // consola por cada embed.
     marco.setAttribute("allow",
-      "accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share");
+      "accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture");
     return marco;
   }
 
@@ -614,8 +657,12 @@ const Pizarra = (() => {
         ta.style.fontSize = `${el.Grosor || 14}px`;
       }
       ta.addEventListener("change", async () => {
+        const anterior = el.Contenido;
         el.Contenido = ta.value;
-        await Api.updateRow("pizarra_elementos", el.ID, { Contenido: ta.value });
+        await persistir(
+          () => Api.updateRow("pizarra_elementos", el.ID, { Contenido: ta.value }),
+          () => { el.Contenido = anterior; }
+        );
       });
       ta.addEventListener("blur", () => {
         const card = ta.closest(".pizarra-elemento");
@@ -727,8 +774,11 @@ const Pizarra = (() => {
       const nuevoX = Math.max(0, elX + (ev.clientX - inicioX) / zoom);
       const nuevoY = Math.max(0, elY + (ev.clientY - inicioY) / zoom);
       actualizarLocal(el.ID, { X: nuevoX, Y: nuevoY });
-      await Api.updateRow("pizarra_elementos", el.ID, { X: nuevoX, Y: nuevoY });
-      pushUndo({ tipo: "mover", id: el.ID, antes: { X: elX, Y: elY }, despues: { X: nuevoX, Y: nuevoY } });
+      const ok = await persistir(
+        () => Api.updateRow("pizarra_elementos", el.ID, { X: nuevoX, Y: nuevoY }),
+        () => actualizarLocal(el.ID, { X: elX, Y: elY })
+      );
+      if (ok) pushUndo({ tipo: "mover", id: el.ID, antes: { X: elX, Y: elY }, despues: { X: nuevoX, Y: nuevoY } });
     }
     document.addEventListener("mousemove", onMove);
     document.addEventListener("mouseup", onUp);
@@ -761,19 +811,21 @@ const Pizarra = (() => {
       const nuevoAlto = Math.max(40, altoIni + (ev.clientY - inicioY) / zoom);
       if (nuevoAncho === anchoIni && nuevoAlto === altoIni) return;
       actualizarLocal(el.ID, { Ancho: nuevoAncho, Alto: nuevoAlto });
-      await Api.updateRow("pizarra_elementos", el.ID, { Ancho: nuevoAncho, Alto: nuevoAlto });
-      pushUndo({ tipo: "resize", id: el.ID, antes: { Ancho: anchoIni, Alto: altoIni }, despues: { Ancho: nuevoAncho, Alto: nuevoAlto } });
+      const ok = await persistir(
+        () => Api.updateRow("pizarra_elementos", el.ID, { Ancho: nuevoAncho, Alto: nuevoAlto }),
+        () => actualizarLocal(el.ID, { Ancho: anchoIni, Alto: altoIni })
+      );
+      if (ok) pushUndo({ tipo: "resize", id: el.ID, antes: { Ancho: anchoIni, Alto: altoIni }, despues: { Ancho: nuevoAncho, Alto: nuevoAlto } });
     }
     document.addEventListener("mousemove", onMove);
     document.addEventListener("mouseup", onUp);
   }
 
   async function borrarElemento(el, agregarHistorial) {
-    await Api.deleteRow("pizarra_elementos", el.ID);
+    if (!(await persistir(() => Api.deleteRow("pizarra_elementos", el.ID)))) return;
     State.pizarraElementos = State.pizarraElementos.filter((e) => String(e.ID) !== String(el.ID));
-    // El archivo de Drive se borra junto con el elemento para no dejar
-    // huerfanos. Ojo: el undo restaura la fila pero no el archivo, asi que
-    // una imagen/pdf/audio deshecha vuelve con la referencia rota.
+    // El archivo de Drive va a la papelera junto con el elemento; el undo lo
+    // restaura junto con la fila (ver aplicarCambio).
     await borrarArchivoDeElemento(el);
     if (agregarHistorial) pushUndo({ tipo: "borrar", elemento: { ...el } });
     // Al borrar una forma tambien se borran sus conexiones: si no lo
@@ -785,7 +837,7 @@ const Pizarra = (() => {
         (e) => e.Tipo === "conexion" && (String(e.Origen_ID) === String(el.ID) || String(e.Destino_ID) === String(el.ID))
       );
       for (const con of huerfanas) {
-        await Api.deleteRow("pizarra_elementos", con.ID);
+        await persistir(() => Api.deleteRow("pizarra_elementos", con.ID));
       }
       State.pizarraElementos = State.pizarraElementos.filter((e) => !huerfanas.includes(e));
     }
@@ -819,7 +871,7 @@ const Pizarra = (() => {
   async function crearConexion(origenId, destinoId) {
     const color = document.getElementById("pizarra-color").value;
     const grosor = document.getElementById("pizarra-grosor").value;
-    const creado = await Api.createRow("pizarra_elementos", {
+    const creado = await persistir(() => Api.createRow("pizarra_elementos", {
       Pizarra_ID: pizarraActualId,
       Tipo: "conexion",
       X: 0, Y: 0, Ancho: 0, Alto: 0,
@@ -831,7 +883,8 @@ const Pizarra = (() => {
       Fecha_creacion: todayISO(),
       Origen_ID: origenId,
       Destino_ID: destinoId,
-    });
+    }));
+    if (!creado) return;
     State.pizarraElementos.push(creado);
     pushUndo({ tipo: "crear", elemento: { ...creado } });
     renderElementos();
@@ -886,7 +939,7 @@ const Pizarra = (() => {
         return;
       }
       const caja = cajaDePuntos(puntos);
-      const creado = await Api.createRow("pizarra_elementos", {
+      const creado = await persistir(() => Api.createRow("pizarra_elementos", {
         Pizarra_ID: pizarraActualId,
         Tipo: "trazo",
         X: caja.x, Y: caja.y, Ancho: caja.ancho, Alto: caja.alto,
@@ -896,7 +949,8 @@ const Pizarra = (() => {
         Grosor: grosor,
         Z_index: siguienteZIndex(),
         Fecha_creacion: todayISO(),
-      });
+      }));
+      if (!creado) return;
       State.pizarraElementos.push(creado);
       pushUndo({ tipo: "crear", elemento: { ...creado } });
       renderElementos();
@@ -945,7 +999,7 @@ const Pizarra = (() => {
       preview.remove();
       if (Math.hypot(fin.x - inicio.x, fin.y - inicio.y) < 4) return;
       const caja = cajaDePuntos([inicio, fin]);
-      const creado = await Api.createRow("pizarra_elementos", {
+      const creado = await persistir(() => Api.createRow("pizarra_elementos", {
         Pizarra_ID: pizarraActualId,
         Tipo: tipo,
         X: caja.x, Y: caja.y, Ancho: caja.ancho, Alto: caja.alto,
@@ -955,7 +1009,8 @@ const Pizarra = (() => {
         Grosor: grosor,
         Z_index: siguienteZIndex(),
         Fecha_creacion: todayISO(),
-      });
+      }));
+      if (!creado) return;
       State.pizarraElementos.push(creado);
       pushUndo({ tipo: "crear", elemento: { ...creado } });
       renderElementos();
@@ -971,51 +1026,72 @@ const Pizarra = (() => {
     redoStack = [];
   }
 
+  // Sheets primero, estado local despues: si la escritura falla, la excepcion
+  // sube a deshacer/rehacer con el estado intacto. createRow respeta el ID
+  // que recibe, asi que la fila vuelve con su ID original y las conexiones
+  // que apuntaban a el siguen valiendo.
+  async function quitarFila(elemento) {
+    await Api.deleteRow("pizarra_elementos", elemento.ID);
+    State.pizarraElementos = State.pizarraElementos.filter((e) => String(e.ID) !== String(elemento.ID));
+    await borrarArchivoDeElemento(elemento);
+  }
+
+  async function reponerFila(elemento) {
+    // El archivo vuelve de la papelera antes que la fila: si no esta, avisa y
+    // la fila se recrea igual (el usuario decide si la borra).
+    await restaurarArchivoDeElemento(elemento);
+    await Api.createRow("pizarra_elementos", elemento);
+    State.pizarraElementos.push({ ...elemento });
+  }
+
   async function aplicarCambio(accion, usarAntes) {
     switch (accion.tipo) {
       case "mover":
       case "resize": {
         const cambios = usarAntes ? accion.antes : accion.despues;
-        actualizarLocal(accion.id, cambios);
         await Api.updateRow("pizarra_elementos", accion.id, cambios);
+        actualizarLocal(accion.id, cambios);
         break;
       }
       case "crear": {
-        if (usarAntes) {
-          await Api.deleteRow("pizarra_elementos", accion.elemento.ID);
-          State.pizarraElementos = State.pizarraElementos.filter((e) => String(e.ID) !== String(accion.elemento.ID));
-        } else {
-          await Api.createRow("pizarra_elementos", accion.elemento);
-          State.pizarraElementos.push({ ...accion.elemento });
-        }
+        if (usarAntes) await quitarFila(accion.elemento);
+        else await reponerFila(accion.elemento);
         break;
       }
       case "borrar": {
-        if (usarAntes) {
-          await Api.createRow("pizarra_elementos", accion.elemento);
-          State.pizarraElementos.push({ ...accion.elemento });
-        } else {
-          await Api.deleteRow("pizarra_elementos", accion.elemento.ID);
-          State.pizarraElementos = State.pizarraElementos.filter((e) => String(e.ID) !== String(accion.elemento.ID));
-        }
+        if (usarAntes) await reponerFila(accion.elemento);
+        else await quitarFila(accion.elemento);
         break;
       }
     }
     renderElementos();
   }
 
+  // Si la escritura falla, la accion vuelve a su pila para poder reintentar.
+  // aplicarCambio escribe en Sheets ANTES de tocar el estado local, asi que un
+  // fallo deja todo como estaba.
   async function deshacer() {
     const accion = undoStack.pop();
     if (!accion) return;
-    await aplicarCambio(accion, true);
-    redoStack.push(accion);
+    try {
+      await aplicarCambio(accion, true);
+      redoStack.push(accion);
+    } catch (e) {
+      undoStack.push(accion);
+      toast(`No se pudo deshacer: ${e.message}`, "error");
+    }
   }
 
   async function rehacer() {
     const accion = redoStack.pop();
     if (!accion) return;
-    await aplicarCambio(accion, false);
-    undoStack.push(accion);
+    try {
+      await aplicarCambio(accion, false);
+      undoStack.push(accion);
+    } catch (e) {
+      redoStack.push(accion);
+      toast(`No se pudo rehacer: ${e.message}`, "error");
+    }
   }
 
   function onKeydown(e) {
@@ -1078,7 +1154,7 @@ const Pizarra = (() => {
     }
     const offset = siguienteOffset();
     const tam = DEFAULTS[tipo];
-    const creado = await Api.createRow("pizarra_elementos", Object.assign({
+    const creado = await persistir(() => Api.createRow("pizarra_elementos", Object.assign({
       Pizarra_ID: pizarraActualId,
       Tipo: tipo,
       X: 60 + offset, Y: 60 + offset,
@@ -1088,7 +1164,8 @@ const Pizarra = (() => {
       Color: "", Grosor: "",
       Z_index: siguienteZIndex(),
       Fecha_creacion: todayISO(),
-    }, extra || {}));
+    }, extra || {})));
+    if (!creado) return null;
     State.pizarraElementos.push(creado);
     pushUndo({ tipo: "crear", elemento: { ...creado } });
     renderElementos();

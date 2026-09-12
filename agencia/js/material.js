@@ -35,12 +35,14 @@ const Material = (() => {
   // Borra el archivo de Drive asociado a una foto que deja de estar
   // referenciada, para no acumular huérfanos. Nunca aborta la operación
   // principal: si el borrado falla, solo se avisa.
+  // A la papelera, no borrado permanente: se puede recuperar desde Drive si
+  // hizo falta. Nunca aborta la accion que lo llama; si falla, solo avisa.
   async function borrarFotoDeDrive(ref) {
     if (!DriveFiles.idDeRef(ref)) return;
     try {
-      await DriveFiles.borrarArchivo(ref);
+      await DriveFiles.moverAPapelera(ref);
     } catch (e) {
-      toast(`No se pudo borrar la foto de Drive: ${e.message}`, "error");
+      toast(`No se pudo mover la foto a la papelera de Drive: ${e.message}`, "error");
     }
   }
 
@@ -323,6 +325,8 @@ const Material = (() => {
       Notas: "",
     });
     await Api.deleteRow("material_disponible", m.ID);
+    // La tarea del kanban no guarda la foto: sin esto quedaba huerfana en Drive.
+    await borrarFotoDeDrive(m.Foto);
     await Promise.all([refreshMaterial(), refreshKanban()]);
     render();
     Kanban.render();
@@ -360,6 +364,7 @@ const Material = (() => {
       Estado_pago: "pendiente",
     });
     await Api.deleteRow("material_disponible", m.ID);
+    await borrarFotoDeDrive(m.Foto);
     await Promise.all([refreshMaterial(), refreshCxc()]);
     render();
     toast(`Completado: ${m.Cliente} - ${m.Tipo} (${fmtMoney(monto)})`, "success");

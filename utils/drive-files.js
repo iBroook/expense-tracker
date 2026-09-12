@@ -536,18 +536,33 @@ var DriveFiles = {
     });
   },
 
-  // Manda el archivo a la papelera en vez de borrarlo (mas conservador).
+  // Manda el archivo a la papelera en vez de borrarlo. Es lo que usa la app
+  // para TODO borrado: la fila del Sheet se puede deshacer y el archivo tiene
+  // que poder volver con ella (restaurarDePapelera). Nada se destruye de
+  // forma permanente desde la app; vaciar la papelera es decision humana.
   moverAPapelera: function(refOId) {
+    return this._cambiarPapelera(refOId, true, 'No se pudo mover el archivo a la papelera');
+  },
+
+  restaurarDePapelera: function(refOId) {
+    return this._cambiarPapelera(refOId, false, 'No se pudo restaurar el archivo de la papelera');
+  },
+
+  _cambiarPapelera: function(refOId, trashed, mensajeError) {
     var self = this;
     var fileId = this.idDeRef(refOId) || refOId;
-    var token = this.getToken();
+    if (!fileId) return Promise.resolve(false);
+    var token;
+    try { token = this.getToken(); } catch (err) { return Promise.reject(err); }
+
     return fetch(this._conUnidad(this.DRIVE_API + '/' + encodeURIComponent(fileId)), {
       method: 'PATCH',
       headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ trashed: true })
+      body: JSON.stringify({ trashed: trashed })
     }).then(function(r) {
-      self.liberarUrl(fileId);
-      if (!r.ok) return self._errorDrive(r, 'No se pudo mover el archivo a la papelera');
+      if (trashed) self.liberarUrl(fileId);
+      if (r.status === 404) return false;  // ya no existe (papelera vaciada)
+      if (!r.ok) return self._errorDrive(r, mensajeError);
       return true;
     });
   },
