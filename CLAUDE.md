@@ -70,6 +70,17 @@ No hay tests ni linter: la verificación es manual en el navegador.
    cambiar de pestaña: los módulos enlazan sus manejadores una sola vez en `init()` y
    reconstruir el marcado los perdería. `agencia-nav.js` solo alterna visibilidad.
 
+10. **La app nunca borra archivos de Drive de forma permanente: solo papelera.**
+    `DriveFiles.moverAPapelera()` / `restaurarDePapelera()`. Así el undo de la pizarra
+    trae el archivo de vuelta con la fila. `borrarArchivo()` existe pero no se usa.
+
+11. **El poll de 60 s reconstruye el DOM.** Toda interacción larga (arrastre, edición,
+    reproducción) debe bloquear `render()` con una bandera — `interactuando` en pizarra,
+    `arrastrando` en kanban — o el gesto se corta a mitad.
+
+12. **Toda escritura a Sheets en la pizarra pasa por `persistir(op, revertir)`.** Si falla,
+    avisa con toast, revierte el estado local y repinta. Nunca `await Api.x()` a pelo.
+
 ---
 
 ## Estructura
@@ -120,7 +131,9 @@ la propiedad `window.switchTab`, así que reasignarla afecta también a los `onc
   Google: sin token OAuth toda lectura de Sheets falla.
 - `init()` es idempotente (flag `iniciado`) para no duplicar listeners ni timers.
 - Antes de leer datos, `init()` llama a `AgenciaBootstrap.asegurarEstructura()`.
-- Refresco automático cada 60 s (`setInterval` en `app.js`).
+- Refresco automático cada 60 s (`setInterval` en `app.js`), en **una sola petición**
+  `values:batchGet` para las 8 hojas (`refreshTodo()` en `state.js`). Los `refreshX()`
+  individuales siguen existiendo para releer solo lo que tocó una acción.
 
 ---
 
@@ -233,9 +246,8 @@ UI de VS Code, o instala Git.
 | Nombre y foto del usuario | La barra lateral muestra "Usuario": los scopes no incluyen perfil |
 | Sin streaming de vídeo | El archivo se descarga entero antes de reproducirse (consecuencia de `blob:`) |
 | `.webm` en pizarra | Se trata como audio. Para vídeo, `.mp4` o `.mov` |
-| Deshacer tras borrar en pizarra | Restaura el elemento pero el archivo ya se borró de Drive |
-| Huérfanos en Drive | `enviarAKanban` y `completarMaterial` borran la fila sin limpiar la foto |
 | Escrituras concurrentes | No hay bloqueo: dos pestañas sobre la misma fila pueden pisarse |
+| Tasas de cambio | Manuales a propósito (VES/USDT usan la tasa paralela, no la oficial). No añadir API sin que lo pidan |
 
 ---
 
